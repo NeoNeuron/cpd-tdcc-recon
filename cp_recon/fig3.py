@@ -78,7 +78,7 @@ axs[1].set_xlim(0,4e5)
 axs[1].set_ylim(0,1)
 axs[1].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
 axs[1].set_xlabel('Time (ms)', fontsize=16)
-axs[1].set_ylabel(r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
+axs[1].set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
 
 roc_all = []
 roc_part = []

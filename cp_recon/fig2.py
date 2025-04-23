@@ -20,7 +20,7 @@ curW=data_buff['curW']
 V=data_buff['V']
 spikes=data_buff['spikes']
 DDV = np.diff(V, n=2, axis=0)
-DDV_ion = np.diff(np.diff(V, n=1, axis=0) - curP[:-1] - curW[:-1], n=1, axis=0)
+DDV_ion = np.diff(np.diff(V, n=1, axis=0) - curP[1:] - curW[1:], n=1, axis=0)
 DDV_P = np.diff(curP, n=1, axis=0)
 DDV_W = np.diff(curW, n=1, axis=0)
 #%%
@@ -65,10 +65,10 @@ ax[1].plot(ts[1:-1], np.abs(DDV_ion@v.T).reshape(-1), label='ion')
 ax[2].plot(ts[1:], np.abs(DDV_P@v.T).reshape(-1), label='ext')
 ax[3].plot(ts[1:], np.abs(DDV_W@v.T).reshape(-1), label='rec')
 
-ylabels = [r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}\rangle|$',
-           r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{ion}\rangle|$',
-           r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle|$',
-           r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{rec}\rangle|$']
+ylabels = [r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}\rangle|$',
+           r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ion}\rangle|$',
+           r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle|$',
+           r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{rec}\rangle|$']
 for i, ylabel in enumerate(ylabels):
     ax[i].fill_between(ts[:25000], 0, 0.6, color='C0', alpha=0.2, lw=0)
     ax[i].set_xlim(0, 2000)

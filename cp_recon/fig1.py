@@ -82,6 +82,8 @@ I_V = I_V[int(warmup_time/bm.get_dt()):, :]
 E_spike = E_spike[int(warmup_time/bm.get_dt()):, :]
 I_spike = I_spike[int(warmup_time/bm.get_dt()):, :]
 ts = indices[int(warmup_time/bm.get_dt()):] * bm.get_dt()
+ts = indices[int(warmup_time/bm.get_dt()):] * bm.get_dt()
+print('E_V shape: ', E_V.shape, '; curP2E shape: ', curP2E.shape)
 #%%
 fig, ax = plt.subplots(4, 2, figsize=(16, 8), 
                        gridspec_kw={'hspace': 0.2, 'top': 0.95, 'bottom': 0.4, 'left': 0.05},
@@ -90,14 +92,14 @@ E_fr = E_spike.sum()/simulation_time/E_spike.shape[1]
 I_fr = I_spike.sum()/simulation_time/I_spike.shape[1]
 print(E_fr.mean(), I_fr.mean())
 
-ax[0,0].semilogy(ts[1:-1], np.abs(np.diff(np.diff(E_V.mean(1)))), label='V')
-ax[1,0].semilogy(ts[1:], np.abs(np.diff(curW2E.mean(1))), label='W')
-ax[2,0].semilogy(ts[1:], np.abs(np.diff(curP2E.mean(1))), label='P')
-ax[3,0].semilogy(ts[1:], np.abs(np.diff(np.diff(E_V, axis=0)-curP2E[:-1]-curW2E[:-1]).mean(1)), label='ion')
-ax[0,1].semilogy(ts[1:-1], np.abs(np.diff(np.diff(I_V.mean(1)))), label='V')
-ax[1,1].semilogy(ts[1:], np.abs(np.diff(curW2I.mean(1))), label='W')
-ax[2,1].semilogy(ts[1:], np.abs(np.diff(curP2I.mean(1))), label='P')
-ax[3,1].semilogy(ts[1:], np.abs(np.diff(np.diff(I_V, axis=0)-curP2I[:-1]-curW2I[:-1]).mean(1)), label='ion')
+ax[0,0].semilogy(ts[1:-1], np.abs(np.diff(E_V, n=2, axis=0).mean(1)), label='V')
+ax[1,0].semilogy(ts[1:], np.abs(np.diff(curW2E, axis=0).mean(1)), label='W')
+ax[2,0].semilogy(ts[1:], np.abs(np.diff(curP2E, axis=0).mean(1)), label='P')
+ax[3,0].semilogy(ts[1:-1], np.abs(np.diff(np.diff(E_V, axis=0)-curP2E[1:]-curW2E[1:], axis=0).mean(1)), label='ion')
+ax[0,1].semilogy(ts[1:-1], np.abs(np.diff(I_V, n=2, axis=0).mean(1)), label='V')
+ax[1,1].semilogy(ts[1:], np.abs(np.diff(curW2I, axis=0).mean(1)), label='W')
+ax[2,1].semilogy(ts[1:], np.abs(np.diff(curP2I, axis=0).mean(1)), label='P')
+ax[3,1].semilogy(ts[1:-1], np.abs(np.diff(np.diff(I_V, axis=0)-curP2I[1:]-curW2I[1:], axis=0).mean(1)), label='ion')
 ax[0,0].set_title('Excitatory populations', fontsize=18)
 ax[0,1].set_title('Inhibitory populations', fontsize=18)
 ax[0,0].set_ylabel(r'$|\langle\Delta^2 v_i\rangle_i|$')
@@ -168,7 +170,7 @@ fig.text(0.01, 0.96, 'a', fontsize=24, fontweight='bold')
 fig.text(0.01, 0.32, 'b', fontsize=24, fontweight='bold')
 fig.text(0.47, 0.96, 'c', fontsize=24, fontweight='bold')
 fig.text(0.47, 0.32, 'd', fontsize=24, fontweight='bold')
-# fig.savefig('fig1_EI32k_raster.pdf', dpi=300, bbox_inches='tight')
+fig.savefig('fig1_EI32k_raster.pdf', dpi=300, bbox_inches='tight')
 
 
 
