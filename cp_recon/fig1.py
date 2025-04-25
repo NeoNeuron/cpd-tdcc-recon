@@ -117,6 +117,8 @@ ax[0,0].set_ylim(1e-7, 1e-1)
 ax[0,1].set_ylim(1e-7, 1e-1)
 ax[0,0].set_yticks([1e-7, 1e-4, 1e-1])
 ax[0,1].set_yticks([1e-7, 1e-4, 1e-1])
+for axi in ax.flatten():
+    axi.set_rasterized(True)
 
 gs = fig.add_gridspec(1, 3, wspace=0.2, hspace=0.2, top=0.30, bottom=0.05, left=0.05, right=0.46)
 ax_bottom = [fig.add_subplot(gsi) for gsi in gs]

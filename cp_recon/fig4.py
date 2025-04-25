@@ -75,6 +75,7 @@ for axi, DDV_proj in zip(axs, DDV_projs):
     axi.set_ylim(0,ymax)
     axi.ticklabel_format(style='sci', scilimits=(0,0), axis='both', useMathText=True)
     axi.set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
+    axi.set_rasterized(True)
 axs[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
 axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
 axs[1].set_xlabel('Time (ms)', fontsize=16)
@@ -141,5 +142,4 @@ for i, lab in enumerate('bcd'):
     fig.text(0.04+i*0.155, 0.36, lab, fontsize=24, fontweight='bold')
 for i, lab in enumerate('efg'):
     fig.text(0.51+i*0.155, 0.36, lab, fontsize=24, fontweight='bold')
-
 fig.savefig('fig4_reconGeneral.pdf', dpi=600)

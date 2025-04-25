@@ -45,6 +45,8 @@ ax[0].plot(ts[1:-1], np.abs(DDV@v_rec), label='V')
 ax[1].plot(ts[1:-1], np.abs(DDV_ion@v_rec), label='ion')
 ax[2].plot(ts[1:], np.abs(DDV_P@v_rec), label='ext')
 ax[3].plot(ts[1:], np.abs(DDV_W@v_rec), label='rec')
+for axi in ax:
+    axi.set_rasterized(True)
 ylabels = [r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}\rangle|$',
            r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{ion}\rangle|$',
            r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle|$',
@@ -64,6 +66,8 @@ ax[0].plot(ts[1:-1], np.abs(DDV@v.T).reshape(-1), label='V')
 ax[1].plot(ts[1:-1], np.abs(DDV_ion@v.T).reshape(-1), label='ion')
 ax[2].plot(ts[1:], np.abs(DDV_P@v.T).reshape(-1), label='ext')
 ax[3].plot(ts[1:], np.abs(DDV_W@v.T).reshape(-1), label='rec')
+for axi in ax:
+    axi.set_rasterized(True)
 
 ylabels = [r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}\rangle|$',
            r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ion}\rangle|$',
