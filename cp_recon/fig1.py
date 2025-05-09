@@ -1,7 +1,7 @@
 # %%
 from common import *
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 import brainpy as bp
 import brainpy.math as bm
 bm.set_platform('gpu')
@@ -81,8 +81,7 @@ E_V = E_V[int(warmup_time/bm.get_dt()):, :]
 I_V = I_V[int(warmup_time/bm.get_dt()):, :]
 E_spike = E_spike[int(warmup_time/bm.get_dt()):, :]
 I_spike = I_spike[int(warmup_time/bm.get_dt()):, :]
-ts = indices[int(warmup_time/bm.get_dt()):] * bm.get_dt()
-ts = indices[int(warmup_time/bm.get_dt()):] * bm.get_dt()
+ts = indices[int(warmup_time/bm.get_dt()):] * bm.get_dt() - warmup_time
 print('E_V shape: ', E_V.shape, '; curP2E shape: ', curP2E.shape)
 #%%
 fig, ax = plt.subplots(4, 2, figsize=(16, 8), 
@@ -112,7 +111,7 @@ ax[3,0].set_ylabel(r'$|\langle\Delta^2 v_i^\mathrm{ion}\rangle_i|$')
 ax[3,1].set_ylabel(r'$|\langle\Delta^2 v_i^\mathrm{ion}\rangle_i|$')
 ax[3,0].set_xlabel('Time (ms)')
 ax[3,1].set_xlabel('Time (ms)')
-ax[0,0].set_xlim(20,220)
+ax[0,0].set_xlim(0,200)
 ax[0,0].set_ylim(1e-7, 1e-1)
 ax[0,1].set_ylim(1e-7, 1e-1)
 ax[0,0].set_yticks([1e-7, 1e-4, 1e-1])
@@ -169,8 +168,8 @@ ax_bottom[1].set_ylabel('Density')
 ax_bottom[2].set_ylabel('Density')
 
 fig.text(0.01, 0.96, 'a', fontsize=24, fontweight='bold')
-fig.text(0.01, 0.32, 'b', fontsize=24, fontweight='bold')
-fig.text(0.47, 0.96, 'c', fontsize=24, fontweight='bold')
+fig.text(0.01, 0.32, 'c', fontsize=24, fontweight='bold')
+fig.text(0.47, 0.96, 'b', fontsize=24, fontweight='bold')
 fig.text(0.47, 0.32, 'd', fontsize=24, fontweight='bold')
 fig.savefig('fig1_EI32k_raster.pdf', dpi=300, bbox_inches='tight')
 

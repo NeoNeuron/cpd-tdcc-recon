@@ -56,7 +56,7 @@ gs = fig.add_gridspec(1, 1, left=0.07, right=0.97, top=1., bottom=0.92)
 ax = fig.add_subplot(gs[0, 0])
 for i in range(4):
     ax.fill_between([i,i+1], -0.5, 0.5, color=f'C{i:d}', alpha=0.4, lw=0)
-    ax.text(i+0.5, 0.0, r'$\mathbf{W}_{%d}$'%i, fontsize=24, fontweight='bold', ha='center', va='center')
+    ax.text(i+0.5, 0.0, r'$\mathbf{W}_{%d}$'%(i+1), fontsize=24, fontweight='bold', ha='center', va='center')
 ax.spines['left'].set_visible(False)
 ax.set_xlim(0,4)
 ax.set_ylim(-0.5, 0.5)
@@ -87,7 +87,7 @@ auc_part = []
 
 gs = fig.add_gridspec(1, 6, left=0.07, right=0.97, top=0.38, bottom=0.09, wspace=0.3)
 axs = [fig.add_subplot(gs[0, i]) for i in range(6)]
-for axi, nettype in zip(axs[::3], network_types):
+for axi, nettype in zip(axs[1::3], network_types):
     estimator = CausalityEstimator(
         path=data_path,
         spk_fname=nettype+'Net-K=40mu=50_T=4.00e+05',
@@ -107,7 +107,7 @@ for axi, nettype in zip(axs[::3], network_types):
     auc_all.append(fig_data['auc_svm'])
 
 #%
-for axi, nettype in zip(axs[1::3], network_types):
+for axi, nettype in zip(axs[::3], network_types):
     estimator = CausalityEstimator(
         path=data_path,
         spk_fname=nettype+'Net-K=40mu=50_T=4.00e+05',
@@ -143,3 +143,4 @@ for i, lab in enumerate('bcd'):
 for i, lab in enumerate('efg'):
     fig.text(0.51+i*0.155, 0.36, lab, fontsize=24, fontweight='bold')
 fig.savefig('fig4_reconGeneral.pdf', dpi=600)
+# %%

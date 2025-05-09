@@ -31,6 +31,9 @@ def get_conn_matrix(num_pre:int, num_post:int, K:int,
                     np.random.choice(num_post, size=K, replace=False)
                     )
                 ) for i in range(num_pre)]
+        elif mode == 'random':  # a modified version of FixedPre
+            conn_mat = np.random.rand(num_pre, num_post) < K*1./num_pre
+            conn_mat = [np.asarray(np.nonzero(conn_mat))]
         else:
             raise NotImplementedError(f"mode {mode} not implemented!")
         conn_mat = np.hstack(conn_mat)
@@ -58,7 +61,8 @@ def get_IJcomm(pre_ids, post_ids, pre_size, post_size, weight):
     return bp.dnn.EventCSRLinear(conn, np.ones_like(pre_ids)*weight)
 
 def get_comms_fromfile(conn_path:str, num_e:int, num_i:int,
-                       w_e2e:float, w_e2i:float, w_i2e:float, w_i2i:float):
+                       w_e2e:float, w_e2i:float, w_i2e:float, w_i2i:float,
+                       weight_path:np.ndarray=None):
     conn_mat = np.load(conn_path)
     _conn_e2e = conn_mat[:, (conn_mat[0]< num_e) * (conn_mat[1]< num_e)]
     _conn_e2i = conn_mat[:, (conn_mat[0]< num_e) * (conn_mat[1]>=num_e)]
@@ -67,6 +71,17 @@ def get_comms_fromfile(conn_path:str, num_e:int, num_i:int,
     _conn_i2e[0] -= num_e
     _conn_i2i = conn_mat[:, (conn_mat[0]>=num_e) * (conn_mat[1]>=num_e)]
     _conn_i2i -= num_e
+    # print(weight_path)
+    if weight_path is not None:
+        weight_mat = np.load(weight_path)
+        _w_e2e = weight_mat[(conn_mat[0]< num_e) * (conn_mat[1]< num_e)]
+        _w_e2i = weight_mat[(conn_mat[0]< num_e) * (conn_mat[1]>=num_e)]
+        _w_i2e = weight_mat[(conn_mat[0]>=num_e) * (conn_mat[1]< num_e)]
+        _w_i2i = weight_mat[(conn_mat[0]>=num_e) * (conn_mat[1]>=num_e)]
+        w_e2e = w_e2e * _w_e2e
+        w_e2i = w_e2i * _w_e2i
+        w_i2e = w_i2e * _w_i2e
+        w_i2i = w_i2i * _w_i2i
     comm_e2e = get_IJcomm(_conn_e2e[0], _conn_e2e[1], num_e, num_e, w_e2e)
     comm_e2i = get_IJcomm(_conn_e2i[0], _conn_e2i[1], num_e, num_i, w_e2i)
     comm_i2e = get_IJcomm(_conn_i2e[0], _conn_i2e[1], num_i, num_e, w_i2e)
@@ -92,6 +107,7 @@ class LIFNet(bp.Network):
     def __init__(self,
         num_neurons:int, K:int, mu:float,
         conn_path:Union[str, PosixPath], poisson_seed=0,
+        weight_path:Union[str, PosixPath]=None,
         delay:float=None, method='exp_auto'):
         super().__init__()
         pars = dict(
@@ -113,8 +129,9 @@ class LIFNet(bp.Network):
 
         # synapses
         comm_e2e, comm_e2i, comm_i2e, comm_i2i = get_comms_fromfile(
-            conn_path, num_e, num_i, w_e2e, w_e2i, w_i2e, w_i2i
+            conn_path, num_e, num_i, w_e2e, w_e2i, w_i2e, w_i2i, weight_path
             )
+        print(comm_e2e.weight)
         self.E2E = bp.dyn.FullProjDelta(self.E, delay, comm_e2e, self.E)
         self.E2I = bp.dyn.FullProjDelta(self.E, delay, comm_e2i, self.I)
         self.I2E = bp.dyn.FullProjDelta(self.I, delay, comm_i2e, self.E)
@@ -160,6 +177,7 @@ class LIFNet_monitor(bp.Network):
     def __init__(self,
         num_neurons:int, K:int, mu:float,
         conn_path:Union[str, PosixPath], poisson_seed=0,
+        weight_path:Union[str, PosixPath]=None,
         delay:float=None, method='exp_auto'):
         super().__init__()
         pars = dict(
@@ -181,7 +199,7 @@ class LIFNet_monitor(bp.Network):
 
         # synapses
         comm_e2e, comm_e2i, comm_i2e, comm_i2i = get_comms_fromfile(
-            conn_path, num_e, num_i, w_e2e, w_e2i, w_i2e, w_i2i
+            conn_path, num_e, num_i, w_e2e, w_e2i, w_i2e, w_i2i, weight_path
             )
         self.E2E = bp.dyn.FullProjDelta(self.E, delay, comm_e2e, self.E, out_label='W')
         self.E2I = bp.dyn.FullProjDelta(self.E, delay, comm_e2i, self.I, out_label='W')
@@ -224,7 +242,8 @@ class LIFNet_monitor(bp.Network):
 
 
 class HHNet(bp.Network):
-    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0):
+    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0,
+                 weight_path:Union[str, PosixPath]=None):
         super().__init__()
         # define parameters following the EI balance scaling
         n_e = int(num_neurons*4/5)
@@ -252,9 +271,10 @@ class HHNet(bp.Network):
 
         # define recurrent connections
         comm_e2e, comm_e2i, comm_i2e, comm_i2i = get_comms_fromfile(
-            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i
+            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i, weight_path
             )
         
+        print(comm_e2e.weight)
         self.E2E = bp.dyn.FullProjDelta(self.E, None, comm_e2e, self.E, out_label='E')
         self.E2I = bp.dyn.FullProjDelta(self.E, None, comm_e2i, self.I, out_label='E')
         self.I2E = bp.dyn.FullProjDelta(self.I, None, comm_i2e, self.E, out_label='I')
@@ -315,7 +335,8 @@ class HHNet(bp.Network):
 
 
 class MLNet(bp.Network):
-    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0):
+    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0,
+                 weight_path:Union[str, PosixPath]=None):
         super().__init__()
         # define parameters following the EI balance scaling
         n_e = int(num_neurons*4/5)
@@ -337,9 +358,10 @@ class MLNet(bp.Network):
 
         # define recurrent connections
         comm_e2e, comm_e2i, comm_i2e, comm_i2i = get_comms_fromfile(
-            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i
+            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i, weight_path
             )
         
+        print(comm_e2e.weight)
         self.E2E = bp.dyn.FullProjDelta(self.E, None, comm_e2e, self.E, out_label='E')
         self.E2I = bp.dyn.FullProjDelta(self.E, None, comm_e2i, self.I, out_label='E')
         self.I2E = bp.dyn.FullProjDelta(self.I, None, comm_i2e, self.E, out_label='I')
@@ -392,7 +414,8 @@ class MLNet(bp.Network):
 
 
 class IzhNet(bp.Network):
-    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0):
+    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0,
+                 weight_path:Union[str, PosixPath]=None):
         super().__init__()
         # define parameters following the EI balance scaling
         n_e = int(num_neurons*4/5)
@@ -414,7 +437,7 @@ class IzhNet(bp.Network):
 
         # define recurrent connections
         comm_e2e, comm_e2i, comm_i2e, comm_i2i = get_comms_fromfile(
-            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i
+            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i, weight_path
             )
         
         self.E2E = bp.dyn.FullProjDelta(self.E, None, comm_e2e, self.E, out_label='E')
@@ -537,7 +560,8 @@ class IzhNet_monitor(bp.Network):
         return self
 
 class QIFNet(bp.Network):
-    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0):
+    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0,
+                 weight_path:Union[str, PosixPath]=None):
         super().__init__()
         # define parameters following the EI balance scaling
         n_e = int(num_neurons*4/5)
@@ -559,7 +583,7 @@ class QIFNet(bp.Network):
 
         # define recurrent connections
         comm_e2e, comm_e2i, comm_i2e, comm_i2i = get_comms_fromfile(
-            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i
+            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i, weight_path
             )
         
         self.E2E = bp.dyn.FullProjDelta(self.E, None, comm_e2e, self.E, out_label='E')
@@ -608,7 +632,70 @@ class QIFNet(bp.Network):
         self.I.V = state_dict['I.V']
         return self
 
+class QIFNet_monitor(bp.Network):
+    def __init__(self, num_neurons:int, K:int, mu:float, conn_path:str, poisson_seed:int=0):
+        super().__init__()
+        # define parameters following the EI balance scaling
+        n_e = int(num_neurons*4/5)
+        n_i = int(num_neurons*1/5)
+        w_e2e =  1.0 * 20.0 / bm.sqrt(K)  # excitatory synaptic weight
+        w_e2i =  1.0 * 20.0 / bm.sqrt(K)  # excitatory synaptic weight
+        w_i2e = -2.0 * 20.0 / bm.sqrt(K)  # inhibitory synaptic weight
+        w_i2i = -1.8 * 20.0 / bm.sqrt(K)  # inhibitory synaptic weight
+        f2e   =  1.0 * 20.0 / bm.sqrt(K)  # excitatory synaptic weight
+        f2i   =  0.8 * 20.0 / bm.sqrt(K)  # excitatory synaptic weight
+        mu_e  =  1.0 * mu * K
+        mu_i  =  1.0 * mu * K
 
+        # define neuronal populations
+        self.E  = bp.dyn.QuaIF(size=n_e, tau=20.)
+        self.I  = bp.dyn.QuaIF(size=n_i, tau=20.)
+        self.PE = bp.dyn.PoissonGroup(n_e, freqs=mu_e, seed=poisson_seed)
+        self.PI = bp.dyn.PoissonGroup(n_i, freqs=mu_i, seed=poisson_seed+100)
+
+        # define recurrent connections
+        comm_e2e, comm_e2i, comm_i2e, comm_i2i = get_comms_fromfile(
+            conn_path, n_e, n_i, w_e2e, w_e2i, w_i2e, w_i2i
+            )
+        
+        self.E2E = bp.dyn.FullProjDelta(self.E, None, comm_e2e, self.E, out_label='W')
+        self.E2I = bp.dyn.FullProjDelta(self.E, None, comm_e2i, self.I, out_label='W')
+        self.I2E = bp.dyn.FullProjDelta(self.I, None, comm_i2e, self.E, out_label='W')
+        self.I2I = bp.dyn.FullProjDelta(self.I, None, comm_i2i, self.I, out_label='W')
+
+        # define feedforward connections
+        p2e_comm = get_IJcomm(np.arange(n_e), np.arange(n_e), n_e, n_e, weight=f2e)
+        p2i_comm = get_IJcomm(np.arange(n_i), np.arange(n_i), n_i, n_i, weight=f2i)
+        self.P2E = bp.dyn.FullProjDelta(self.PE, None, p2e_comm, self.E, out_label='P')
+        self.P2I = bp.dyn.FullProjDelta(self.PI, None, p2i_comm, self.I, out_label='P')
+    
+    def update(self):
+        self.PE()
+        self.PI()
+        self.P2E()
+        self.P2I()
+        self.E2E()
+        self.E2I()
+        self.I2E()
+        self.I2I()
+        self.E()
+        self.I()
+        curW2E = self.E.sum_delta_inputs(label='W')
+        curP2E = self.E.sum_delta_inputs(label='P')
+        curW2I = self.I.sum_delta_inputs(label='W')
+        curP2I = self.I.sum_delta_inputs(label='P')
+        return curW2E, curP2E, curW2I, curP2I, self.E.V, self.I.V, self.E.spike, self.I.spike
+    
+    def save_neu_state(self):
+        return {
+            'E.V': self.E.V.to_numpy(),
+            'I.V': self.I.V.to_numpy(),
+            }
+    
+    def load_neu_state(self, state_dict:dict):
+        self.E.V = state_dict['E.V']
+        self.I.V = state_dict['I.V']
+        return self
 
 
 # ====================================

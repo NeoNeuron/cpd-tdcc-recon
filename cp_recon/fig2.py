@@ -74,7 +74,7 @@ ylabels = [r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}\rangle|$',
            r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle|$',
            r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{rec}\rangle|$']
 for i, ylabel in enumerate(ylabels):
-    ax[i].fill_between(ts[:25000], 0, 0.6, color='C0', alpha=0.2, lw=0)
+    ax[i].fill_between(ts[:25000], 0, 0.6, color='C1', alpha=0.2, lw=0, zorder=10)
     ax[i].set_xlim(0, 2000)
     ax[i].set_ylim(0, 0.6)
     ax[i].set_ylabel(ylabel, fontsize=10, rotation=0, va='center', ha='right')
@@ -102,8 +102,8 @@ ax.text(1.5, 0.0, r'$\mathbf{W}_2$', fontsize=18, fontweight='bold', ha='center'
 
 
 fig.text(0.01, 0.95, 'a', fontsize=24, fontweight='bold')
-fig.text(0.01, 0.5, 'b', fontsize=24, fontweight='bold')
-fig.text(0.38, 0.95, 'c', fontsize=24, fontweight='bold')
+fig.text(0.01, 0.5, 'c', fontsize=24, fontweight='bold')
+fig.text(0.38, 0.95, 'b', fontsize=24, fontweight='bold')
 fig.text(0.38, 0.5, 'd', fontsize=24, fontweight='bold')
 fig.savefig('fig2_schematics.pdf', dpi=600 )
 #%%

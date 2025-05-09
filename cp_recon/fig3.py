@@ -51,7 +51,7 @@ gs = fig.add_gridspec(1, 1, left=0.07, right=0.97, top=1., bottom=0.97)
 ax = fig.add_subplot(gs[0, 0])
 for i in range(4):
     ax.fill_between([i,i+1], -0.5, 0.5, color=f'C{i:d}', alpha=0.4, lw=0)
-    ax.text(i+0.5, 0.0, r'$\mathbf{W}_{%d}$'%i, fontsize=24, fontweight='bold', ha='center', va='center')
+    ax.text(i+0.5, 0.0, r'$\mathbf{W}_{%d}$'%(i+1), fontsize=24, fontweight='bold', ha='center', va='center')
 ax.spines['left'].set_visible(False)
 ax.set_xlim(0,4)
 ax.set_ylim(-0.5, 0.5)
@@ -88,27 +88,7 @@ auc_part = []
 
 gs = fig.add_gridspec(3, 4, left=0.07, right=0.97, top=0.65, bottom=0.05, wspace=0.4, hspace=0.4)
 axs = [fig.add_subplot(gs[0, i]) for i in range(4)]
-estimator = CausalityEstimator(
-    path=data_path,
-    spk_fname='LIFNet-K=40mu=50_T=4.00e+05',
-    N=200, T=4e5, n_thread=120, delay=0.0, dt=0.1, order=(1, 1), DT=1e4)
-# Fetch the causality data as a pandas dataframe
-data = estimator.fetch_data(new_run=True)
-for i, axi in enumerate(axs):
-    data_matched = c4u.match_features(data, N=200, conn_file=data_path/f'connect_matrix-p=0.020-s{i:d}_subnet.npy')
-    data_matched = apply_mask(data_matched, data_path/f'connect_matrix-p=0.020-s{i:d}_mask.npy')
-    data_recon, fig_data = c4u._reconstruction_analysis(
-        data_matched, x='log-CC', hist_range = None, nbins = 100, # not implemented yet
-        algorithm='curve_fit')
-    sns.histplot(data=data_recon, x='log-CC', hue='connection', kde=True, bins=30, binrange=(-11, -4), ax=axi)
-    axi.set_xlabel('CC')
-    axi.set_xlim(-11, -4)
-    axi.xaxis.set_major_formatter(sci_formatter)
-    roc_all.append(fig_data['roc_gt'])
-    auc_all.append(fig_data['auc_svm'])
 
-
-axs = [fig.add_subplot(gs[1, i]) for i in range(4)]
 for i, axi in enumerate(axs):
     estimator = CausalityEstimator(
         path=data_path,
@@ -127,6 +107,26 @@ for i, axi in enumerate(axs):
     axi.xaxis.set_major_formatter(sci_formatter)
     roc_part.append(fig_data['roc_gt'])
     auc_part.append(fig_data['auc_svm'])
+
+axs = [fig.add_subplot(gs[1, i]) for i in range(4)]
+estimator = CausalityEstimator(
+    path=data_path,
+    spk_fname='LIFNet-K=40mu=50_T=4.00e+05',
+    N=200, T=4e5, n_thread=120, delay=0.0, dt=0.1, order=(1, 1), DT=1e4)
+# Fetch the causality data as a pandas dataframe
+data = estimator.fetch_data(new_run=True)
+for i, axi in enumerate(axs):
+    data_matched = c4u.match_features(data, N=200, conn_file=data_path/f'connect_matrix-p=0.020-s{i:d}_subnet.npy')
+    data_matched = apply_mask(data_matched, data_path/f'connect_matrix-p=0.020-s{i:d}_mask.npy')
+    data_recon, fig_data = c4u._reconstruction_analysis(
+        data_matched, x='log-CC', hist_range = None, nbins = 100, # not implemented yet
+        algorithm='curve_fit')
+    sns.histplot(data=data_recon, x='log-CC', hue='connection', kde=True, bins=30, binrange=(-11, -4), ax=axi)
+    axi.set_xlabel('CC')
+    axi.set_xlim(-11, -4)
+    axi.xaxis.set_major_formatter(sci_formatter)
+    roc_all.append(fig_data['roc_gt'])
+    auc_all.append(fig_data['auc_svm'])
 
 axs = [fig.add_subplot(gs[2, i]) for i in range(4)]
 for i, axi in enumerate(axs):
