@@ -50,9 +50,9 @@ with open(data_path / 'DDV_projs_to_chunk0_1e4.pkl', 'rb') as f:
 DDV_projs = DDV_projs[1:3]
 ts = np.arange(DDV_projs[0].shape[0])*0.02
 #%% # Load the voltage data
-fig = plt.figure(figsize=(16, 6))
+fig = plt.figure(figsize=(16, 9))
 
-gs = fig.add_gridspec(1, 1, left=0.07, right=0.97, top=1., bottom=0.92)
+gs = fig.add_gridspec(1, 1, left=0.07, right=0.97, top=1., bottom=0.96)
 ax = fig.add_subplot(gs[0, 0])
 for i in range(4):
     ax.fill_between([i,i+1], -0.5, 0.5, color=f'C{i:d}', alpha=0.4, lw=0)
@@ -65,27 +65,44 @@ ax.set_yticks([])
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-gs = fig.add_gridspec(2, 1, left=0.07, right=0.97, top=0.90, bottom=0.5, hspace=0.3)
-axs = [fig.add_subplot(gs[i, 0]) for i in range(2)]
+gs = fig.add_gridspec(4, 1, left=0.07, right=0.97, top=0.95, bottom=0.4, hspace=0.3, height_ratios=[1, 0.8, 1, 0.8])
+axs = np.array([fig.add_subplot(gs[i, 0]) for i in range(4)])
+axs = axs.reshape(2, 2)
 for axi, DDV_proj in zip(axs, DDV_projs):
-    axi.plot(ts, np.abs(DDV_proj).flatten())
+    axi[0].plot(ts, np.abs(DDV_proj).flatten())
     ymax = np.abs(DDV_proj).max()
-    axi.fill_between(ts[:500000], 0, ymax, color='C1', alpha=0.4, lw=0, zorder=100)
-    axi.set_xlim(0,4e5)
-    axi.set_ylim(0,ymax)
-    axi.ticklabel_format(style='sci', scilimits=(0,0), axis='both', useMathText=True)
-    axi.set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
-    axi.set_rasterized(True)
-axs[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
-axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
-axs[1].set_xlabel('Time (ms)', fontsize=16)
+    axi[0].fill_between(ts[:500000], 0, ymax, color='C1', alpha=0.4, lw=0, zorder=100)
+    axi[0].set_xlim(0,4e5)
+    axi[0].set_ylim(0,ymax)
+    axi[0].ticklabel_format(style='sci', scilimits=(0,0), axis='both', useMathText=True)
+    axi[0].set_ylabel(
+        r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
+    axi[0].set_rasterized(True)
+    tps, x, f, p = TCD_Ftest(
+        ts, DDV_proj.flatten(), window_size=int(200/0.02),
+        p_thresh=1e-18, return_delta_mean=True)
+    print(tps)
+    dT = x[1]-x[0]
+    axi[1].plot(x, f, '-o', ms=4, clip_on=False)
+    # axi[1].semilogy(x, p, '-o', ms=4, clip_on=False)
+    axi[1].set_xlim(0, 4e5)
+    axi[1].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
+    # for tp in tps:
+    #     axs[2].fill_between([tp-dT/2, tp+dT/2], 0.85, 1.6, color='C3', alpha=0.6, lw=0, zorder=10)
+    # axs[2].set_ylim(0.85,1.6)
+    axi[1].set_xlabel('Time (ms)', fontsize=16)
+    axi[1].set_ylabel('F statistics', fontsize=12)# rotation=0, va='center', ha='right')
+    axi[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
+    axi[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
+    axi[1].set_xlabel('Time (ms)', fontsize=16)
+#%
 
 roc_all = []
 roc_part = []
 auc_all = []
 auc_part = []
 
-gs = fig.add_gridspec(1, 6, left=0.07, right=0.97, top=0.38, bottom=0.09, wspace=0.3)
+gs = fig.add_gridspec(1, 6, left=0.07, right=0.97, top=0.30, bottom=0.09, wspace=0.3)
 axs = [fig.add_subplot(gs[0, i]) for i in range(6)]
 for axi, nettype in zip(axs[1::3], network_types):
     estimator = CausalityEstimator(
@@ -137,10 +154,11 @@ for i, axi in enumerate(axs[2::3]):
     axi.set_xlabel('FPR', fontsize=14)
     axi.set_ylabel('TPR', fontsize=14)
 
-fig.text(0.04, 0.95, 'a', fontsize=24, fontweight='bold')
-for i, lab in enumerate('bcd'):
-    fig.text(0.04+i*0.155, 0.36, lab, fontsize=24, fontweight='bold')
-for i, lab in enumerate('efg'):
-    fig.text(0.51+i*0.155, 0.36, lab, fontsize=24, fontweight='bold')
+fig.text(0.02, 0.95, 'a', fontsize=24, fontweight='bold')
+fig.text(0.02, 0.63, 'b', fontsize=24, fontweight='bold')
+for i, lab in enumerate('cde'):
+    fig.text(0.02+i*0.165, 0.30, lab, fontsize=24, fontweight='bold')
+for i, lab in enumerate('fgh'):
+    fig.text(0.51+i*0.155, 0.30, lab, fontsize=24, fontweight='bold')
 fig.savefig('fig4_reconGeneral.pdf', dpi=600)
 # %%

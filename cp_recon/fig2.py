@@ -27,8 +27,8 @@ DDV_W = np.diff(curW, n=1, axis=0)
 import scipy.sparse as sp
 _, s, v = sp.linalg.svds(DDV[0:25000], k=1, return_singular_vectors='vh', which='SM', maxiter=1000)
 #%%
-fig = plt.figure(figsize=(12, 6))
-gd = fig.add_gridspec(2,1, left=0.0, right=0.37, top=0.95, bottom=0.05, hspace=0.3, height_ratios=[1,1.5])
+fig = plt.figure(figsize=(12, 7))
+gd = fig.add_gridspec(2,1, left=0.0, right=0.37, top=0.95, bottom=0.15, hspace=0.25, height_ratios=[1,1.4])
 ax = [fig.add_subplot(gdi) for gdi in gd]
 pdf_image = imread('schematics.png', )
 ax[0].imshow(pdf_image)
@@ -39,7 +39,26 @@ ax[1].axis('off')
 # ax[0].add_artist(ab)
 # ax[0].axis('off')
 # ax[1].plot(range(10))
-gd = fig.add_gridspec(4,1, left=0.5, right=0.98, top=1.0, bottom=0.62, hspace=0.10)
+
+gs = fig.add_gridspec(1, 1, left=0.5, right=0.98, top=1.00, bottom=0.95)
+ax = fig.add_subplot(gs[0, 0])
+ax.fill_between([0,1], -0.5, 1, color='C2', alpha=0.4, lw=0)
+ax.fill_between([1,2], -0.5, 1, color='C3', alpha=0.4, lw=0)
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.spines['left'].set_visible(False)
+ax.set_xlim(0,2)
+ax.set_ylim(-0.5, 0.8)
+# ax.set_xlabel('Time', fontsize=14)
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_xticklabels([])
+ax.set_yticklabels([])
+ax.text(0.5, 0.0, r'$\mathbf{W}_1$', fontsize=18, fontweight='bold', ha='center', va='center')
+ax.text(1.5, 0.0, r'$\mathbf{W}_2$', fontsize=18, fontweight='bold', ha='center', va='center')
+
+
+gd = fig.add_gridspec(4,1, left=0.5, right=0.98, top=0.94, bottom=0.63, hspace=0.10)
 ax = [fig.add_subplot(gdi) for gdi in gd]
 ax[0].plot(ts[1:-1], np.abs(DDV@v_rec), label='V')
 ax[1].plot(ts[1:-1], np.abs(DDV_ion@v_rec), label='ion')
@@ -60,7 +79,7 @@ for i, ylabel in enumerate(ylabels):
     else:
         ax[i].set_xticklabels([])
 
-gd = fig.add_gridspec(4,1, left=0.5, right=0.98, top=0.52, bottom=0.17)
+gd = fig.add_gridspec(4,1, left=0.5, right=0.98, top=0.53, bottom=0.24)
 ax = [fig.add_subplot(gdi) for gdi in gd]
 ax[0].plot(ts[1:-1], np.abs(DDV@v.T).reshape(-1), label='V')
 ax[1].plot(ts[1:-1], np.abs(DDV_ion@v.T).reshape(-1), label='ion')
@@ -83,28 +102,24 @@ for i, ylabel in enumerate(ylabels):
     else:
         ax[i].set_xticklabels([])
 
-gs = fig.add_gridspec(1, 1, left=0.5, right=0.98, top=0.07, bottom=0.01)
+gs = fig.add_gridspec(1, 1, left=0.5, right=0.98, top=0.14, bottom=0.08)
 ax = fig.add_subplot(gs[0, 0])
-ax.fill_between([0,1], -0.5, 1, color='C2', alpha=0.4, lw=0)
-ax.fill_between([1,2], -0.5, 1, color='C3', alpha=0.4, lw=0)
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.spines['left'].set_visible(False)
-ax.set_xlim(0,2)
-ax.set_ylim(-0.5, 0.8)
-# ax.set_xlabel('Time', fontsize=14)
-ax.set_xticks([])
-ax.set_yticks([])
-ax.set_xticklabels([])
-ax.set_yticklabels([])
-ax.text(0.5, 0.0, r'$\mathbf{W}_1$', fontsize=18, fontweight='bold', ha='center', va='center')
-ax.text(1.5, 0.0, r'$\mathbf{W}_2$', fontsize=18, fontweight='bold', ha='center', va='center')
-
+tps, x, f, p = TCD_Ftest(ts[1:-1], (DDV@v.T).flatten(), window_size=int(20/0.02), p_thresh=1e-18, return_delta_mean=True)
+print(tps)
+dT = x[1]-x[0]
+ax.plot(x, f, '-o', ms=4, clip_on=False)
+ax.set_xlim(0, 2000)
+for tp in tps:
+    ax.fill_between([tp-dT/2, tp+dT/2], 0, 5, color='C3', alpha=0.6, lw=0, zorder=10)
+ax.set_ylim(0,5)
+ax.set_xlabel('Time (ms)')
+ax.set_ylabel('F statistics', rotation=0, fontsize=14, va='center', ha='right')
 
 fig.text(0.01, 0.95, 'a', fontsize=24, fontweight='bold')
-fig.text(0.01, 0.5, 'c', fontsize=24, fontweight='bold')
 fig.text(0.38, 0.95, 'b', fontsize=24, fontweight='bold')
-fig.text(0.38, 0.5, 'd', fontsize=24, fontweight='bold')
+fig.text(0.01, 0.55, 'c', fontsize=24, fontweight='bold')
+fig.text(0.38, 0.55, 'd', fontsize=24, fontweight='bold')
+fig.text(0.38, 0.15, 'e', fontsize=24, fontweight='bold')
 fig.savefig('fig2_schematics.pdf', dpi=600 )
 #%%
 #%% run model

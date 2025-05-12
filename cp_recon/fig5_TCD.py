@@ -153,21 +153,47 @@ ax.set_yticks([])
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-gs = fig.add_gridspec(3, 1, left=0.07, right=0.5, top=0.96, bottom=0.31, hspace=0.6)
-axs = [fig.add_subplot(gs[i, 0]) for i in range(3)]
+axs = []
+for i in range(3):
+    gs = fig.add_gridspec(2, 1, left=0.07, right=0.5,
+        top=0.96-i*0.24, bottom=0.795-i*0.24, hspace=0.2,
+        height_ratios=[1, 0.6])
+    for j in range(2):
+        axs.append(fig.add_subplot(gs[j, 0]))
+axs = np.array(axs)
+axs = axs.reshape(-1, 2)
 deltas_subset = [0.1, 0.6, 1.2]
 sample_range = 20000
 for delta, axi in zip(deltas_subset,axs):
-    axi.plot(ts[::1], np.abs(proj[int(np.nonzero(deltas==delta)[0])])[::1], color='C0', lw=2)
-    axi.fill_between(ts[:int(sample_range/0.02)], 0, axi.get_ylim()[1], color='C1', alpha=0.4, lw=0, zorder=100)
-    axi.set_xticks([0, 5e5, 1e6, 1.5e6, 2e6])
-    axi.set_xlim(0,2e6)
-    axi.set_ylim(0,)
-    axi.ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
-    axi.set_xlabel('Time (ms)', fontsize=16)
-    axi.set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
-    axi.set_rasterized(True)
-
+    axi[0].plot(ts[::1], np.abs(proj[int(np.nonzero(deltas==delta)[0])])[::1], color='C0', lw=2)
+    axi[0].fill_between(ts[:int(sample_range/0.02)], 0, axi[0].get_ylim()[1], color='C1', alpha=0.4, lw=0, zorder=100)
+    axi[0].set_xlim(0,2e6)
+    axi[0].set_ylim(0,)
+    axi[0].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
+    # axi[0].set_xlabel('Time (ms)', fontsize=16)
+    axi[0].set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
+    axi[0].set_rasterized(True)
+    tps, x, f, p = TCD_Ftest(
+        ts, proj[int(np.nonzero(deltas==delta)[0])], window_size=int(500/0.02),
+        p_thresh=1e-18, return_delta_mean=True)
+    print(tps)
+    dT = x[1]-x[0]
+    axi[1].plot(x, f, '-o', ms=3, clip_on=False)
+    # axi[1].semilogy(x, p, '-o', ms=4, clip_on=False)
+    axi[1].set_xlim(0, 2e6)
+    axi[1].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
+    # for tp in tps:
+    #     axs[2].fill_between([tp-dT/2, tp+dT/2], 0.85, 1.6, color='C3', alpha=0.6, lw=0, zorder=10)
+    # axs[2].set_ylim(0.85,1.6)
+    axi[1].set_ylabel('F statistics', fontsize=14)# rotation=0, va='center', ha='right')
+    axi[0].set_xticks([0, 5e5, 1e6, 15e5, 2e6], ['', '', '', '', ''])
+    axi[1].set_xticks([0, 5e5, 1e6, 15e5, 2e6])
+    if delta == 1.2:
+        axi[1].set_ylim(0.5, 3)
+    else:
+        axi[1].set_ylim(0.9, 1.6)
+    axi[1].set_xlabel('Time (ms)', fontsize=16)
+#%
 # axs[-1].axis('off')
 # axs[-1].plot(ts[::1000], np.abs(proj[-2])[::1000], color='C0', lw=2)
 # axs[-1].axhline(projs_99[-2,0], xmin=0, xmax=0.5, color='C2', lw=4, zorder=10)

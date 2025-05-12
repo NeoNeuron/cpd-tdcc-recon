@@ -44,6 +44,8 @@ from scipy.sparse.linalg import svds
 _,s,v = svds(DDV[:500000], k=1, return_singular_vectors='vh', which='SM')
 s.shape, v.shape
 s
+#%%
+# np.save('projections_topology_change.npy', (DDV@v.T).flatten()[int(5e6-2e5):int(5e6+2e5)])
 #%% # Load the voltage data
 fig = plt.figure(figsize=(16, 14))
 
@@ -60,15 +62,15 @@ ax.set_yticks([])
 ax.set_xticklabels([])
 ax.set_yticklabels([])
 
-gs = fig.add_gridspec(2, 1, left=0.07, right=0.97, top=0.96, bottom=0.71, hspace=0.1)
-axs = [fig.add_subplot(gs[i, 0]) for i in range(2)]
+gs = fig.add_gridspec(3, 1, left=0.07, right=0.97, top=0.96, bottom=0.67, hspace=0.15, height_ratios=[1, 1, 0.8])
+axs = [fig.add_subplot(gs[i, 0]) for i in range(3)]
 spk_data_plot = spk_data[::1000]
-axs[0].plot(spk_data_plot[spk_data_plot[:,1]<160, 0], spk_data_plot[spk_data_plot[:,1]<160,1], '.')
-axs[0].plot(spk_data_plot[spk_data_plot[:,1]>=160, 0], spk_data_plot[spk_data_plot[:,1]>=160,1], '.')
+axs[0].plot(spk_data_plot[spk_data_plot[:,1]<160, 0], spk_data_plot[spk_data_plot[:,1]<160,1], '.', clip_on=False)
+axs[0].plot(spk_data_plot[spk_data_plot[:,1]>=160, 0], spk_data_plot[spk_data_plot[:,1]>=160,1], '.', clip_on=False)
 axs[0].set_xlim(0, 4e5)
 axs[0].set_ylim(0, 200)
 axs[0].set_yticks([1,160,200])
-axs[0].set_ylabel('Neuronal ID', fontsize=14)
+axs[0].set_ylabel('Neuronal ID', fontsize=12)
 axs[0].set_xlim(0, 4e5)
 axs[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
 axs[1].plot(ts, np.abs(DDV@v.flatten()))
@@ -77,16 +79,27 @@ axs[1].fill_between(ts[:500000], 0, 1, color='C1', alpha=0.4, lw=0, zorder=100)
 axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
 axs[1].set_xlim(0,4e5)
 axs[1].set_ylim(0,1)
-axs[1].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
-axs[1].set_xlabel('Time (ms)', fontsize=16)
-axs[1].set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
+axs[1].set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=13)
+axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
+tps, x, f, p = TCD_Ftest(ts, (DDV@v.T).flatten(), window_size=int(400/0.02), p_thresh=1e-18, return_delta_mean=True)
+print(tps)
+dT = x[1]-x[0]
+axs[2].plot(x, f, '-o', ms=4, clip_on=False)
+# axs[2].semilogy(x, p, '-o', ms=4, clip_on=False)
+axs[2].set_xlim(0, 4e5)
+axs[2].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
+# for tp in tps:
+#     axs[2].fill_between([tp-dT/2, tp+dT/2], 0.85, 1.6, color='C3', alpha=0.6, lw=0, zorder=10)
+# axs[2].set_ylim(0.85,1.6)
+axs[2].set_xlabel('Time (ms)', fontsize=16)
+axs[2].set_ylabel('F statistics', fontsize=12)# rotation=0, va='center', ha='right')
 
 roc_all = []
 roc_part = []
 auc_all = []
 auc_part = []
 
-gs = fig.add_gridspec(3, 4, left=0.07, right=0.97, top=0.65, bottom=0.05, wspace=0.4, hspace=0.4)
+gs = fig.add_gridspec(3, 4, left=0.07, right=0.97, top=0.61, bottom=0.05, wspace=0.4, hspace=0.4)
 axs = [fig.add_subplot(gs[0, i]) for i in range(4)]
 
 for i, axi in enumerate(axs):
@@ -141,12 +154,14 @@ for i, axi in enumerate(axs):
     axi.set_ylabel('TPR', fontsize=14)
 
 fig.text(0.02, 0.97, 'a', fontsize=24, fontweight='bold')
-fig.text(0.02, 0.82, 'b', fontsize=24, fontweight='bold')
-for i, lab in enumerate('cdef'):
-    fig.text(0.02+i*0.245, 0.65, lab, fontsize=24, fontweight='bold')
-for i, lab in enumerate('ghij'):
-    fig.text(0.02+i*0.245, 0.43, lab, fontsize=24, fontweight='bold')
-for i, lab in enumerate('klmn'):
-    fig.text(0.02+i*0.245, 0.21, lab, fontsize=24, fontweight='bold')
+fig.text(0.02, 0.844, 'b', fontsize=24, fontweight='bold')
+fig.text(0.02, 0.746, 'c', fontsize=24, fontweight='bold')
+for i, lab in enumerate('defg'):
+    fig.text(0.02+i*0.245, 0.605, lab, fontsize=24, fontweight='bold')
+for i, lab in enumerate('hijk'):
+    fig.text(0.02+i*0.245, 0.40, lab, fontsize=24, fontweight='bold')
+for i, lab in enumerate('lmno'):
+    fig.text(0.02+i*0.245, 0.19, lab, fontsize=24, fontweight='bold')
 
 fig.savefig('fig3_reconLIF.pdf', dpi=600)
+# %%
