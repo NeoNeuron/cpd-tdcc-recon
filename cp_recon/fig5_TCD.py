@@ -96,6 +96,10 @@ tmp = np.abs(proj.reshape(len(deltas), 2, -1))
 projs_mean = tmp.mean(-1)
 projs_mean_relative_change = np.diff(projs_mean, axis=1).flatten()/projs_mean[:,0]
 #%%
+tmp = proj.reshape(len(deltas), 2, -1)
+projs_std = tmp.std(-1)
+projs_std_relative_change = np.diff(projs_std, axis=1).flatten()/projs_std[:,0]
+#%%
 projs_99 = np.quantile(tmp, 0.995, axis=-1)
 projs_99_relative_change = np.diff(projs_99, axis=1).flatten()/projs_99[:,0]
 #%%
@@ -266,33 +270,33 @@ for delta, ax_row in zip(deltas_subset, axs):
         # auc_all.append(fig_data['auc_svm'])
         # fig.text(0.76, 0.97-counter*0.2, r'$\sigma_S$='+f'{delta:.1f}', fontsize=20, ha='center', va='center')
         # counter += 1
-# axs[-1,0].axis('off')
-# axs[-1,0].barplot()
-# axs[-1,0]
-# axs[-1,0]
-# axs[-1,0]
 
 # deltas_subset = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2])
 # mask = [False, True, True, True, False, True, True, True, True]
-gs = fig.add_gridspec(1, 2, left=0.07, right=0.97, top=0.25, bottom=0.10, wspace=0.15)
+gs = fig.add_gridspec(1, 2, left=0.07, right=0.97, top=0.24, bottom=0.06, wspace=0.15)
 axs = [fig.add_subplot(gs[0, j]) for j in range(2)]
 axs = np.asarray(axs)
 
-axs[0].bar(np.arange(len(deltas))-0.1, projs_mean[:,0], width=0.2, color='C2', alpha=0.8, label=r'$\mathbf{W}_1$')
-axs[0].bar(np.arange(len(deltas))+0.1, projs_mean[:,1], width=0.2, color='C3', alpha=0.8, label=r'$\mathbf{W}_2$')
-axs[0].legend(loc=(0.02, 0.70), fontsize=16)
+axs[0].bar(np.arange(len(deltas)), projs_std_relative_change*100, width=0.5, color='C0', alpha=1.0)
+# axs[0].bar(np.arange(len(deltas))-0.1, projs_mean[:,0], width=0.2, color='C2', alpha=0.8, label=r'$\mathbf{W}_1$')
+# axs[0].bar(np.arange(len(deltas))+0.1, projs_mean[:,1], width=0.2, color='C3', alpha=0.8, label=r'$\mathbf{W}_2$')
+# axs[0].legend(loc=(0.02, 0.70), fontsize=16)
 axs[0].set_xticks(np.arange(len(deltas)), deltas)
-axs[0].set_xlabel(r'$\sigma_S$', fontsize=16)
-axs[0].set_ylabel(r'$\langle|\langle \hat{\mathbf{v}}_n, \Delta^2\mathbf{v}\rangle|\rangle_t$', fontsize=16)
+# axs[0].set_xlabel(r'$\sigma_S$', fontsize=16)
+axs[0].set_xlabel(r'Heterogeneity of coupling strength $\sigma_S$', fontsize=16)
+# axs[0].set_ylabel(r'$\langle|\langle \hat{\mathbf{v}}_n, \Delta^2\mathbf{v}\rangle|\rangle_t$', fontsize=16)
+axs[0].set_ylabel('relative change\nof '+ r'$\mathrm{std}\left(\langle \hat{\mathbf{v}}_n, \Delta^2\mathbf{v}\rangle\right)$ (%)', fontsize=14)
 
-axs[1].plot(projs_mean_relative_change*100, np.diff(rhoE, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Exc.', clip_on=False)
-axs[1].plot(projs_mean_relative_change*100, np.diff(rhoI, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Inh.', clip_on=False)
+axs[1].bar(np.arange(len(deltas))-0.15, np.diff(rhoE, axis=1).flatten(), width=0.3, color='C0', alpha=1.0, label='Exc.')
+axs[1].bar(np.arange(len(deltas))+0.15, np.diff(rhoI, axis=1).flatten(), width=0.3, color='C1', alpha=1.0, label='Inh.')
+# axs[1].plot(projs_mean_relative_change*100, np.diff(rhoE, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Exc.', clip_on=False)
+# axs[1].plot(projs_mean_relative_change*100, np.diff(rhoI, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Inh.', clip_on=False)
 # axs[1].plot(np.diff(projs_mean, axis=1)*100, np.diff(rhoE, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Exc.', clip_on=False)
 # axs[1].plot(np.diff(projs_mean, axis=1)*100, np.diff(rhoI, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Inh.', clip_on=False)
-axs[1].legend(loc='lower right', fontsize=16)
-axs[1].set_ylim(0)
-axs[1].set_xlim(0)
-axs[1].set_xlabel(r'relative diff. of $\langle|\langle \hat{\mathbf{v}}_n, \Delta^2\mathbf{v}\rangle|\rangle_t$ (%)', fontsize=14)
+axs[1].legend(loc='upper left', fontsize=16)
+axs[1].set_xticks(np.arange(len(deltas)), deltas)
+axs[1].set_xlabel(r'Heterogeneity of coupling strength $\sigma_S$', fontsize=16)
+# axs[1].set_xlabel(r'relative diff. of $\langle|\langle \hat{\mathbf{v}}_n, \Delta^2\mathbf{v}\rangle|\rangle_t$ (%)', fontsize=14)
 axs[1].set_ylabel(r'$\rho$ improvement', fontsize=14)
 
 # axs[1].bar(deltas_subset-0.02, rhoE[mask,0], width=0.04, color='C2', alpha=0.8)
@@ -301,13 +305,13 @@ axs[1].set_ylabel(r'$\rho$ improvement', fontsize=14)
 # axs[1].set_ylabel(r'$\rho_E$', fontsize=16)
 
 for i, lab in enumerate('adg'):
-    fig.text(0.02, 0.95-i*0.23, lab, fontsize=24, fontweight='bold')
+    fig.text(0.02, 0.96-i*0.24, lab, fontsize=24, fontweight='bold')
 for i, lab in enumerate('beh'):
-    fig.text(0.55, 0.95-i*0.23, lab, fontsize=24, fontweight='bold')
+    fig.text(0.55, 0.96-i*0.24, lab, fontsize=24, fontweight='bold')
 for i, lab in enumerate('cfi'):
-    fig.text(0.765, 0.95-i*0.23, lab, fontsize=24, fontweight='bold')
+    fig.text(0.765, 0.96-i*0.24, lab, fontsize=24, fontweight='bold')
 for i, lab in enumerate('jk'):
-    fig.text(0.02+i*0.5, 0.26, lab, fontsize=24, fontweight='bold')
+    fig.text(0.02+i*0.5, 0.25, lab, fontsize=24, fontweight='bold')
 
 fig.savefig('fig5_reconLIF_vary_weights.pdf', dpi=600)
 #%%
