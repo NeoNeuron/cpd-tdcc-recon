@@ -144,7 +144,7 @@ for i, axi in enumerate(axs):
 axs = [fig.add_subplot(gs[2, i]) for i in range(4)]
 for i, axi in enumerate(axs):
     axi.plot(roc_all[i][0], roc_all[i][1], color='C2', lw=4, label=f'raw data: {auc_all[i]:.3f}', clip_on=False)
-    axi.plot(roc_part[i][0], roc_part[i][1], color='C3', lw=4, label=f'TCP data: {auc_part[i]:.3f}', clip_on=False)
+    axi.plot(roc_part[i][0], roc_part[i][1], color='C3', lw=4, label=f'CPD data: {auc_part[i]:.3f}', clip_on=False)
     axi.set_xlim(0, 1)
     axi.set_ylim(0, 1)
     axi.set_xticks([0, 0.5, 1], ['0', '0.5', '1'])
