@@ -166,7 +166,7 @@ for i in range(3):
         axs.append(fig.add_subplot(gs[j, 0]))
 axs = np.array(axs)
 axs = axs.reshape(-1, 2)
-deltas_subset = [0.1, 0.6, 1.2]
+deltas_subset = [0.4, 0.8, 1.2]
 sample_range = 20000
 for delta, axi in zip(deltas_subset,axs):
     axi[0].plot(ts[::1], np.abs(proj[int(np.nonzero(deltas==delta)[0])])[::1], color='C0', lw=2)
@@ -194,6 +194,8 @@ for delta, axi in zip(deltas_subset,axs):
     axi[1].set_xticks([0, 5e5, 1e6, 15e5, 2e6])
     if delta == 1.2:
         axi[1].set_ylim(0.5, 3)
+    elif delta == 0.8:
+        axi[1].set_ylim(0.8, 2.4)
     else:
         axi[1].set_ylim(0.9, 1.6)
     axi[1].set_xlabel('Time (ms)', fontsize=16)
