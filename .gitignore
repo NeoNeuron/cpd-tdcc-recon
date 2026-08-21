@@ -1,0 +1,12 @@
+.DS_Store
+._.DS_Store
+__pycache__/
+*.pyc
+*.pkl
+*.npy
+*.npz
+*.dat
+*.log
+N4000/
+N32000/
+N4000-2-normal/
