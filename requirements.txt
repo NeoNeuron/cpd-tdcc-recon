@@ -1,0 +1,12 @@
+causal4 @ git+https://github.com/NeoNeuron/causal4-core.git
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+
+# GPU-accelerated network simulation (EINet.py) needs jax/brainpy, which use a
+# custom package index and a local CUDA version suffix that `pip install -r`
+# can't resolve on its own — install these separately, see README.md:
+#   pip install jax==0.4.28 jaxlib==0.4.28+cuda12.cudnn89 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+#   pip install brainpy==2.6.0.post20240803 brainpylib==0.3.1
