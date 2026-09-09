@@ -13,19 +13,53 @@ data_path = path / 'N4000'
 conn_paths = [data_path / f"connect_matrix-p=0.020-s{i:d}.npy" for i in range(2)]
 
 v_rec = np.load(data_path / 'conn_s0_SM_sv.npy')
-data_buff = np.load(data_path / 'N4000_chunk0&1_data.npz')
-ts = data_buff['ts']
-curP=data_buff['curP']
-curW=data_buff['curW']
-V=data_buff['V']
-spikes=data_buff['spikes']
-DDV = np.diff(V, n=2, axis=0)
-DDV_ion = np.diff(np.diff(V, n=1, axis=0) - curP[1:] - curW[1:], n=1, axis=0)
-DDV_P = np.diff(curP, n=1, axis=0)
-DDV_W = np.diff(curW, n=1, axis=0)
-#%%
-import scipy.sparse as sp
-_, s, v = sp.linalg.svds(DDV[0:25000], k=1, return_singular_vectors='vh', which='SM', maxiter=1000)
+fig3_data_file = path / 'fig3_data.npz'
+using_fig3_cache = fig3_data_file.exists()
+if using_fig3_cache:
+    fig3_data = np.load(fig3_data_file, allow_pickle=True)
+    ts = fig3_data['ts']
+    v = fig3_data['v']
+    projected_curves = fig3_data['projected_curves']
+    singular_curves = fig3_data['singular_curves']
+    tps = fig3_data['tps']
+    tcd_x = fig3_data['tcd_x']
+    tcd_f = fig3_data['tcd_f']
+    tcd_delta = float(fig3_data['tcd_delta'])
+else:
+    data_buff = np.load(data_path / 'N4000_chunk0&1_data.npz')
+    ts = data_buff['ts']
+    curP = data_buff['curP']
+    curW = data_buff['curW']
+    V = data_buff['V']
+    DDV = np.diff(V, n=2, axis=0)
+    DDV_ion = np.diff(np.diff(V, n=1, axis=0) - curP[1:] - curW[1:], n=1, axis=0)
+    DDV_P = np.diff(curP, n=1, axis=0)
+    DDV_W = np.diff(curW, n=1, axis=0)
+
+    import scipy.sparse as sp
+    _, s, v = sp.linalg.svds(DDV[0:25000], k=1, return_singular_vectors='vh', which='SM', maxiter=1000)
+    projected_curves = np.array([
+        np.abs(DDV @ v_rec),
+        np.abs(DDV_ion @ v_rec),
+        np.abs(DDV_P @ v_rec),
+        np.abs(DDV_W @ v_rec),
+    ], dtype=object)
+    singular_curves = np.array([
+        np.abs(DDV @ v.T).reshape(-1),
+        np.abs(DDV_ion @ v.T).reshape(-1),
+        np.abs(DDV_P @ v.T).reshape(-1),
+        np.abs(DDV_W @ v.T).reshape(-1),
+    ], dtype=object)
+    tps, tcd_x, tcd_f, _ = TCD_Ftest(
+        ts[1:-1], (DDV @ v.T).flatten(), window_size=int(20/0.02),
+        p_thresh=1e-18, return_delta_mean=True,
+    )
+    tcd_delta = tcd_x[1] - tcd_x[0]
+    np.savez(
+        fig3_data_file,
+        ts=ts, v=v, projected_curves=projected_curves, singular_curves=singular_curves,
+        tps=tps, tcd_x=tcd_x, tcd_f=tcd_f, tcd_delta=tcd_delta,
+    )
 #%%
 fig = plt.figure(figsize=(12, 7))
 gd = fig.add_gridspec(2,1, left=0.0, right=0.37, top=0.95, bottom=0.15, hspace=0.25, height_ratios=[1,1.4])
@@ -60,10 +94,8 @@ ax.text(1.5, 0.0, r'$\mathbf{W}_2$', fontsize=18, fontweight='bold', ha='center'
 
 gd = fig.add_gridspec(4,1, left=0.5, right=0.98, top=0.94, bottom=0.63, hspace=0.10)
 ax = [fig.add_subplot(gdi) for gdi in gd]
-ax[0].plot(ts[1:-1], np.abs(DDV@v_rec), label='V')
-ax[1].plot(ts[1:-1], np.abs(DDV_ion@v_rec), label='ion')
-ax[2].plot(ts[1:], np.abs(DDV_P@v_rec), label='ext')
-ax[3].plot(ts[1:], np.abs(DDV_W@v_rec), label='rec')
+for axis, curve, curve_ts in zip(ax, projected_curves, (ts[1:-1], ts[1:-1], ts[1:], ts[1:])):
+    axis.plot(curve_ts, curve, label='')
 for axi in ax:
     axi.set_rasterized(True)
 ylabels = [r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}\rangle|$',
@@ -81,10 +113,8 @@ for i, ylabel in enumerate(ylabels):
 
 gd = fig.add_gridspec(4,1, left=0.5, right=0.98, top=0.53, bottom=0.24)
 ax = [fig.add_subplot(gdi) for gdi in gd]
-ax[0].plot(ts[1:-1], np.abs(DDV@v.T).reshape(-1), label='V')
-ax[1].plot(ts[1:-1], np.abs(DDV_ion@v.T).reshape(-1), label='ion')
-ax[2].plot(ts[1:], np.abs(DDV_P@v.T).reshape(-1), label='ext')
-ax[3].plot(ts[1:], np.abs(DDV_W@v.T).reshape(-1), label='rec')
+for axis, curve, curve_ts in zip(ax, singular_curves, (ts[1:-1], ts[1:-1], ts[1:], ts[1:])):
+    axis.plot(curve_ts, curve, label='')
 for axi in ax:
     axi.set_rasterized(True)
 
@@ -104,23 +134,25 @@ for i, ylabel in enumerate(ylabels):
 
 gs = fig.add_gridspec(1, 1, left=0.5, right=0.98, top=0.14, bottom=0.08)
 ax = fig.add_subplot(gs[0, 0])
-tps, x, f, p = TCD_Ftest(ts[1:-1], (DDV@v.T).flatten(), window_size=int(20/0.02), p_thresh=1e-18, return_delta_mean=True)
 print(tps)
-dT = x[1]-x[0]
-ax.plot(x, f, '-o', ms=4, clip_on=False)
+ax.plot(tcd_x, tcd_f, '-o', ms=4, clip_on=False)
 ax.set_xlim(0, 2000)
 for tp in tps:
-    ax.fill_between([tp-dT/2, tp+dT/2], 0, 5, color='C3', alpha=0.6, lw=0, zorder=10)
+    ax.fill_between([tp-tcd_delta/2, tp+tcd_delta/2], 0, 5, color='C3', alpha=0.6, lw=0, zorder=10)
 ax.set_ylim(0,5)
 ax.set_xlabel('Time (ms)')
 ax.set_ylabel('F statistics', rotation=0, fontsize=14, va='center', ha='right')
 
-fig.text(0.01, 0.95, 'a', fontsize=24, fontweight='bold')
-fig.text(0.38, 0.95, 'b', fontsize=24, fontweight='bold')
-fig.text(0.01, 0.55, 'c', fontsize=24, fontweight='bold')
-fig.text(0.38, 0.55, 'd', fontsize=24, fontweight='bold')
-fig.text(0.38, 0.15, 'e', fontsize=24, fontweight='bold')
-fig.savefig(path / 'figures' / 'fig2_schematics.pdf', dpi=600 )
+fig.text(0.01, 0.95, 'A', fontsize=24)
+fig.text(0.38, 0.95, 'B', fontsize=24)
+fig.text(0.01, 0.55, 'C', fontsize=24)
+fig.text(0.38, 0.55, 'D', fontsize=24)
+fig.text(0.38, 0.15, 'E', fontsize=24)
+fig.savefig(path / 'figures' / 'fig3_schematics.pdf', dpi=600 )
+#%%
+if using_fig3_cache:
+    raise SystemExit('Loaded compact fig3_data.npz; first figure is complete.')
+
 #%%
 #%% run model
 import brainpy as bp

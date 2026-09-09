@@ -64,41 +64,91 @@ gf = partial(gaussian_filter1d, sigma=gf_window)
 path = Path(__file__).parents[0]
 data_path = path / 'N32000'
 conn_path = data_path / f"connect_matrix-p=0.020-s0.npy"
-
 #%% run model
-model = LIFNet_monitor(num_neurons=32000, K=320, mu=50, conn_path=conn_path, method='euler')
-bm.set_dt(0.02)
-warmup_time = 20        # ms
-simulation_time = 200   # ms
-indices = np.arange(int((warmup_time+simulation_time)/bm.get_dt()))
-curW2E, curP2E, curW2I, curP2I, E_V, I_V, E_spike, I_spike = bm.for_loop(
-    model.step_run, indices, progress_bar=True)
-curP2E = curP2E[int(warmup_time/bm.get_dt()):, :]
-curW2E = curW2E[int(warmup_time/bm.get_dt()):, :]
-curP2I = curP2I[int(warmup_time/bm.get_dt()):, :]
-curW2I = curW2I[int(warmup_time/bm.get_dt()):, :]
-E_V = E_V[int(warmup_time/bm.get_dt()):, :]
-I_V = I_V[int(warmup_time/bm.get_dt()):, :]
-E_spike = E_spike[int(warmup_time/bm.get_dt()):, :]
-I_spike = I_spike[int(warmup_time/bm.get_dt()):, :]
-ts = indices[int(warmup_time/bm.get_dt()):] * bm.get_dt() - warmup_time
-print('E_V shape: ', E_V.shape, '; curP2E shape: ', curP2E.shape)
+# load the pre-generated connection matrix and run the simulation
+data_file = path / 'fig2_data.npz'
+using_fig2_cache = data_file.exists()
+if using_fig2_cache:
+    data = np.load(data_file, allow_pickle=True)
+    curve_ts = data['curve_ts']
+    curves = data['curves']
+    histograms = data['histograms']
+    theory_x = data['theory_x']
+    theory_curves = data['theory_curves']
+    E_fr = float(data['E_fr'])
+    I_fr = float(data['I_fr'])
+    rec_std_e = float(data['rec_std_e'])
+    rec_std_i = float(data['rec_std_i'])
+    ext_std_e = float(data['ext_std_e'])
+    ext_std_i = float(data['ext_std_i'])
+else:
+    model = LIFNet_monitor(num_neurons=32000, K=320, mu=50, conn_path=conn_path, method='euler')
+    bm.set_dt(0.02)
+    warmup_time = 20        # ms
+    simulation_time = 200   # ms
+    indices = np.arange(int((warmup_time+simulation_time)/bm.get_dt()))
+    curW2E, curP2E, curW2I, curP2I, E_V, I_V, E_spike, I_spike = bm.for_loop(
+        model.step_run, indices, progress_bar=True)
+    curP2E = curP2E[int(warmup_time/bm.get_dt()):, :]
+    curW2E = curW2E[int(warmup_time/bm.get_dt()):, :]
+    curP2I = curP2I[int(warmup_time/bm.get_dt()):, :]
+    curW2I = curW2I[int(warmup_time/bm.get_dt()):, :]
+    E_V = E_V[int(warmup_time/bm.get_dt()):, :]
+    I_V = I_V[int(warmup_time/bm.get_dt()):, :]
+    E_spike = E_spike[int(warmup_time/bm.get_dt()):, :]
+    I_spike = I_spike[int(warmup_time/bm.get_dt()):, :]
+    ts = indices[int(warmup_time/bm.get_dt()):] * bm.get_dt() - warmup_time
+    print('E_V shape: ', E_V.shape, '; curP2E shape: ', curP2E.shape)
+    # Precompute all data used by the figure so plotting does not repeat the reductions.
+    E_fr = E_spike.sum()/simulation_time/E_spike.shape[1]
+    I_fr = I_spike.sum()/simulation_time/I_spike.shape[1]
+    curve_ts = [ts[1:-1], ts[1:], ts[1:], ts[1:-1]]
+    curves = [
+        np.abs(np.diff(E_V, n=2, axis=0).mean(1)),
+        np.abs(np.diff(curW2E, axis=0).mean(1)),
+        np.abs(np.diff(curP2E, axis=0).mean(1)),
+        np.abs(np.diff(np.diff(E_V, axis=0)-curP2E[1:]-curW2E[1:], axis=0).mean(1)),
+        np.abs(np.diff(I_V, n=2, axis=0).mean(1)),
+        np.abs(np.diff(curW2I, axis=0).mean(1)),
+        np.abs(np.diff(curP2I, axis=0).mean(1)),
+        np.abs(np.diff(np.diff(I_V, axis=0)-curP2I[1:]-curW2I[1:], axis=0).mean(1)),
+    ]
+    hist_values = [
+        np.diff(np.diff(E_V.mean(1))), np.diff(curW2E.mean(1)), np.diff(curP2E.mean(1)),
+        np.diff(np.diff(I_V.mean(1))), np.diff(curW2I.mean(1)), np.diff(curP2I.mean(1)),
+    ]
+    hist_ranges = [(-0.1, 0.1), (-0.1, 0.1), (-0.001, 0.001)] * 2
+    histograms = []
+    for values, hist_range in zip(hist_values, hist_ranges):
+        density, edges = np.histogram(values, bins=100, range=hist_range, density=True)
+        histograms.append((density, edges))
+
+    theory_x = [np.linspace(-0.1, 0.1, 100), np.linspace(-0.001, 0.001, 100)]
+    rec_std_e = estimate_std(E_fr, dt=bm.get_dt(), rate_I=I_fr, type='E')
+    rec_std_i = estimate_std(I_fr, dt=bm.get_dt(), rate_I=I_fr, type='I')
+    ext_std_e = np.sqrt(0.05 * 1.0 * bm.get_dt()/E_spike.shape[1])
+    ext_std_i = np.sqrt(0.05 * 0.8 * bm.get_dt()/I_spike.shape[1])
+    theory_curves = [
+        norm.pdf(theory_x[0], 0, rec_std_e), norm.pdf(theory_x[1], 0, ext_std_e),
+        norm.pdf(theory_x[0], 0, rec_std_i), norm.pdf(theory_x[1], 0, ext_std_i),
+    ]
+    np.savez(
+        data_file,
+        curve_ts=np.array(curve_ts, dtype=object), curves=np.array(curves, dtype=object),
+        histograms=np.array(histograms, dtype=object), theory_x=np.array(theory_x, dtype=object),
+        theory_curves=np.array(theory_curves, dtype=object), E_fr=E_fr, I_fr=I_fr,
+        rec_std_e=rec_std_e, rec_std_i=rec_std_i, ext_std_e=ext_std_e, ext_std_i=ext_std_i,
+    )
 #%%
 fig, ax = plt.subplots(4, 2, figsize=(16, 8), 
                        gridspec_kw={'hspace': 0.2, 'top': 0.95, 'bottom': 0.4, 'left': 0.05},
                        sharex=True, sharey='col')
-E_fr = E_spike.sum()/simulation_time/E_spike.shape[1]
-I_fr = I_spike.sum()/simulation_time/I_spike.shape[1]
-print(E_fr.mean(), I_fr.mean())
+print(E_fr, I_fr)
 
-ax[0,0].semilogy(ts[1:-1], np.abs(np.diff(E_V, n=2, axis=0).mean(1)), label='V')
-ax[1,0].semilogy(ts[1:], np.abs(np.diff(curW2E, axis=0).mean(1)), label='W')
-ax[2,0].semilogy(ts[1:], np.abs(np.diff(curP2E, axis=0).mean(1)), label='P')
-ax[3,0].semilogy(ts[1:-1], np.abs(np.diff(np.diff(E_V, axis=0)-curP2E[1:]-curW2E[1:], axis=0).mean(1)), label='ion')
-ax[0,1].semilogy(ts[1:-1], np.abs(np.diff(I_V, n=2, axis=0).mean(1)), label='V')
-ax[1,1].semilogy(ts[1:], np.abs(np.diff(curW2I, axis=0).mean(1)), label='W')
-ax[2,1].semilogy(ts[1:], np.abs(np.diff(curP2I, axis=0).mean(1)), label='P')
-ax[3,1].semilogy(ts[1:-1], np.abs(np.diff(np.diff(I_V, axis=0)-curP2I[1:]-curW2I[1:], axis=0).mean(1)), label='ion')
+for axis, index, label in zip(ax[:, 0], range(4), ('V', 'W', 'P', 'ion')):
+    axis.semilogy(curve_ts[index], curves[index], label=label)
+for axis, index, label in zip(ax[:, 1], range(4, 8), ('V', 'W', 'P', 'ion')):
+    axis.semilogy(curve_ts[index - 4], curves[index], label=label)
 ax[0,0].set_title('Excitatory populations', fontsize=18)
 ax[0,1].set_title('Inhibitory populations', fontsize=18)
 ax[0,0].set_ylabel(r'$|\langle\Delta^2 v_i\rangle_i|$')
@@ -121,21 +171,12 @@ for axi in ax.flatten():
 
 gs = fig.add_gridspec(1, 3, wspace=0.2, hspace=0.2, top=0.30, bottom=0.05, left=0.05, right=0.46)
 ax_bottom = [fig.add_subplot(gsi) for gsi in gs]
-ax_bottom[0].hist(np.diff(np.diff(E_V.mean(1))), bins=100, range=(-0.1, 0.1), density=True)
-ax_bottom[1].hist(np.diff(curW2E.mean(1)), bins=100, range=(-0.1, 0.1), density=True)
-ax_bottom[2].hist(np.diff(curP2E.mean(1)), bins=100, range=(-0.001, 0.001), density=True)
-x = np.linspace(-0.1, 0.1, 100)
-std = estimate_std(E_fr, dt=bm.get_dt(), rate_I=I_fr, type='E')
-print('estimated rec std: ', std)
-p = norm.pdf(x, 0, std)
-ax_bottom[0].plot(x, p, '--r', linewidth=2, label='theory')
-ax_bottom[1].plot(x, p, '--r', linewidth=2, label='theory')
-x = np.linspace(-0.001, 0.001, 100)
-std = np.sqrt(0.05 * 1.0 * bm.get_dt()/E_spike.shape[1])
-print('estimated ext std: ', std)
-p = norm.pdf(x, 0, std)
-ax_bottom[2].plot(x, p, '--r', linewidth=2, label='theory')
-ax_bottom[0].legend()
+for axis, histogram in zip(ax_bottom, histograms[:3]):
+    axis.stairs(histogram[0], histogram[1], fill=True)
+ax_bottom[0].plot(theory_x[0], theory_curves[0], '--r', linewidth=2, label='theory')
+ax_bottom[1].plot(theory_x[0], theory_curves[0], '--r', linewidth=2, label='theory')
+ax_bottom[2].plot(theory_x[1], theory_curves[1], '--r', linewidth=2, label='theory')
+ax_bottom[0].legend(loc='upper left')
 ax_bottom[0].set_xlabel(r'$\Delta^2 v_i$')
 ax_bottom[1].set_xlabel(r'$\Delta^2 v_i^\mathrm{rec}$')
 ax_bottom[2].set_xlabel(r'$\Delta^2 v_i^\mathrm{ext}$')
@@ -145,21 +186,12 @@ ax_bottom[2].set_ylabel('Density')
 
 gs = fig.add_gridspec(1, 3, wspace=0.2, hspace=0.2, top=0.30, bottom=0.05, left=0.52, right=0.9)
 ax_bottom = [fig.add_subplot(gsi) for gsi in gs]
-ax_bottom[0].hist(np.diff(np.diff(I_V.mean(1))), bins=100, range=(-0.1, 0.1), density=True)
-ax_bottom[1].hist(np.diff(curW2I.mean(1)), bins=100, range=(-0.1, 0.1), density=True)
-ax_bottom[2].hist(np.diff(curP2I.mean(1)), bins=100, range=(-0.001, 0.001), density=True)
-x = np.linspace(-0.1, 0.1, 100)
-std = estimate_std(I_fr, dt=bm.get_dt(), rate_I=I_fr, type='I')
-print('estimated rec std: ', std)
-p = norm.pdf(x, 0, std)
-ax_bottom[0].plot(x, p, '--r', linewidth=2, label='theory')
-ax_bottom[1].plot(x, p, '--r', linewidth=2, label='theory')
-x = np.linspace(-0.001, 0.001, 100)
-std = np.sqrt(0.05 * 0.8 * bm.get_dt()/I_spike.shape[1])
-print('estimated ext std: ', std)
-p = norm.pdf(x, 0, std)
-ax_bottom[2].plot(x, p, '--r', linewidth=2, label='theory')
-ax_bottom[0].legend()
+for axis, histogram in zip(ax_bottom, histograms[3:]):
+    axis.stairs(histogram[0], histogram[1], fill=True)
+ax_bottom[0].plot(theory_x[0], theory_curves[2], '--r', linewidth=2, label='theory')
+ax_bottom[1].plot(theory_x[0], theory_curves[2], '--r', linewidth=2, label='theory')
+ax_bottom[2].plot(theory_x[1], theory_curves[3], '--r', linewidth=2, label='theory')
+ax_bottom[0].legend(loc='upper left')
 ax_bottom[0].set_xlabel(r'$\Delta^2 v_i$')
 ax_bottom[1].set_xlabel(r'$\Delta^2 v_i^\mathrm{rec}$')
 ax_bottom[2].set_xlabel(r'$\Delta^2 v_i^\mathrm{ext}$')
@@ -167,20 +199,21 @@ ax_bottom[0].set_ylabel('Density')
 ax_bottom[1].set_ylabel('Density')
 ax_bottom[2].set_ylabel('Density')
 
-fig.text(0.01, 0.96, 'a', fontsize=24, fontweight='bold')
-fig.text(0.01, 0.32, 'c', fontsize=24, fontweight='bold')
-fig.text(0.47, 0.96, 'b', fontsize=24, fontweight='bold')
-fig.text(0.47, 0.32, 'd', fontsize=24, fontweight='bold')
-fig.savefig(path / 'figures' / 'fig1_EI32k_raster.pdf', dpi=300, bbox_inches='tight')
+print('estimated rec std E: ', rec_std_e)
+print('estimated ext std E: ', ext_std_e)
+print('estimated rec std I: ', rec_std_i)
+print('estimated ext std I: ', ext_std_i)
+
+fig.text(0.01, 0.96, 'A', fontsize=24)
+fig.text(0.01, 0.32, 'C', fontsize=24)
+fig.text(0.47, 0.96, 'B', fontsize=24)
+fig.text(0.47, 0.32, 'D', fontsize=24)
+fig.savefig(path / 'figures' / 'fig2_EI32k_raster.pdf', dpi=300, bbox_inches='tight')
 
 
-
-
-
-
-
-
-
+# %%
+if using_fig2_cache:
+    raise SystemExit('Loaded compact fig3_data.npz; first figure is complete.')
 
 #%%  more tests
 bp.visualize.raster_plot(

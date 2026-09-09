@@ -4,6 +4,9 @@ import pdif.utils as c4u
 path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 from pdif.myplot import sci_formatter
+from scipy.sparse.linalg import svds
+from scipy.stats import gaussian_kde
+from matplotlib.patches import Rectangle
 plt.rcParams.update({
     'axes.spines.top': False,
     'axes.spines.right': False,
@@ -13,7 +16,6 @@ plt.rcParams.update({
 })
 
 fname = 'LIFNet-K=40mu=50_T=4.00e+05'
-spk_data = np.fromfile(data_path / (fname+'_spike_train.dat'), dtype=float).reshape(-1,2)
 # T_single = 1e5
 # for i in range(4):
 #     buff = spk_data[(spk_data[:,0]>=i*T_single)*(spk_data[:,0]<(i+1)*T_single)].copy()
@@ -30,22 +32,92 @@ def apply_mask(df, mask_file):
     row_list = np.concatenate(row_list)
     df = df.loc[row_list]
     return df
-#%%
-fname = 'LIFNet-K=40mu=50_T=4.00e+05'
-vol_data = c4u.fetch_voltage(data_path / (fname+'_voltage.dat'), 200, (0, 4e5))
-ts = vol_data[1:-1, 0].copy()
-DDV = np.diff(vol_data[:, 1:], n=2, axis=0)
-DDV_mean = np.abs(DDV.mean(1))
-# %%
-plt.figure(figsize=(10, 5))
-plt.plot(ts, np.abs(DDV.mean(1)))
-# %%
-from scipy.sparse.linalg import svds
-_,s,v = svds(DDV[:500000], k=1, return_singular_vectors='vh', which='SM')
-s.shape, v.shape
-s
-#%%
-# np.save('projections_topology_change.npy', (DDV@v.T).flatten()[int(5e6-2e5):int(5e6+2e5)])
+fig4_data_file = path / 'fig4_data.npz'
+
+def as_object_array(values):
+    result = np.empty(len(values), dtype=object)
+    for i, value in enumerate(values):
+        result[i] = value
+    return result
+
+def get_histogram_data(data_recon, hist_range):
+    result = []
+    for connection in data_recon['connection'].unique():
+        values = data_recon.loc[data_recon['connection'] == connection, 'log-CC'].to_numpy()
+        density, edges = np.histogram(values, bins=30, range=hist_range, density=True)
+        kde_x = np.linspace(*hist_range, 200)
+        kde_y = gaussian_kde(values)(kde_x) if values.size > 1 else np.zeros_like(kde_x)
+        result.append((connection, density, edges, kde_x, kde_y))
+    return result
+
+if fig4_data_file.exists():
+    fig4_data = np.load(fig4_data_file, allow_pickle=True)
+    ts = fig4_data['ts']
+    raster_x = fig4_data['raster_x']
+    raster_y = fig4_data['raster_y']
+    projection_curve = fig4_data['projection_curve']
+    ftest_x = fig4_data['ftest_x']
+    ftest_f = fig4_data['ftest_f']
+    ftest_tps = fig4_data['ftest_tps']
+    histogram_data = fig4_data['histogram_data']
+    roc_all = fig4_data['roc_all']
+    roc_part = fig4_data['roc_part']
+    auc_all = fig4_data['auc_all']
+    auc_part = fig4_data['auc_part']
+else:
+    spk_data = np.fromfile(data_path / (fname+'_spike_train.dat'), dtype=float).reshape(-1, 2)
+    vol_data = c4u.fetch_voltage(data_path / (fname+'_voltage.dat'), 200, (0, 4e5))
+    ts = vol_data[1:-1, 0].copy()
+    DDV = np.diff(vol_data[:, 1:], n=2, axis=0)
+    _, _, v = svds(DDV[:500000], k=1, return_singular_vectors='vh', which='SM')
+    raster_data = spk_data[::1000]
+    raster_x = as_object_array([
+        raster_data[raster_data[:, 1] < 160, 0],
+        raster_data[raster_data[:, 1] >= 160, 0],
+    ])
+    raster_y = as_object_array([
+        raster_data[raster_data[:, 1] < 160, 1],
+        raster_data[raster_data[:, 1] >= 160, 1],
+    ])
+    projection_curve = np.abs(DDV @ v.flatten())
+    ftest_tps, ftest_x, ftest_f, _ = TCD_Ftest(
+        ts, (DDV @ v.T).flatten(), window_size=int(400/0.02),
+        p_thresh=1e-18, return_delta_mean=True)
+    roc_all, roc_part, auc_all, auc_part = [], [], [], []
+    histogram_data = []
+    for i in range(4):
+        estimator = CausalityEstimator(
+            path=data_path,
+            spk_fname=f'LIFNet-K=40mu=50_T=4.00e+05_part{i:d}',
+            N=200, T=1e5, n_thread=120, delay=0.0, dt=0.1, order=(1, 1), DT=1e4)
+        data = estimator.fetch_data(new_run=True)
+        data_matched = c4u.match_features(data, N=200, conn_file=data_path/f'connect_matrix-p=0.020-s{i:d}_subnet.npy')
+        data_matched = apply_mask(data_matched, data_path/f'connect_matrix-p=0.020-s{i:d}_mask.npy')
+        data_recon, fig_data = c4u._reconstruction_analysis(
+            data_matched, x='log-CC', hist_range=(-10, -4), nbins=100, algorithm='curve_fit')
+        histogram_data.append(get_histogram_data(data_recon, (-10, -4)))
+        roc_part.append(fig_data['roc_gt'])
+        auc_part.append(fig_data['auc_svm'])
+    estimator = CausalityEstimator(
+        path=data_path, spk_fname=fname, N=200, T=4e5, n_thread=120,
+        delay=0.0, dt=0.1, order=(1, 1), DT=1e4)
+    data = estimator.fetch_data(new_run=True)
+    for i in range(4):
+        data_matched = c4u.match_features(data, N=200, conn_file=data_path/f'connect_matrix-p=0.020-s{i:d}_subnet.npy')
+        data_matched = apply_mask(data_matched, data_path/f'connect_matrix-p=0.020-s{i:d}_mask.npy')
+        data_recon, fig_data = c4u._reconstruction_analysis(
+            data_matched, x='log-CC', hist_range=None, nbins=100, algorithm='curve_fit')
+        histogram_data.append(get_histogram_data(data_recon, (-11, -4)))
+        roc_all.append(fig_data['roc_gt'])
+        auc_all.append(fig_data['auc_svm'])
+    np.savez(
+        fig4_data_file, ts=ts, raster_x=as_object_array(raster_x),
+        raster_y=as_object_array(raster_y), projection_curve=projection_curve,
+        ftest_x=ftest_x, ftest_f=ftest_f, ftest_tps=ftest_tps,
+        histogram_data=as_object_array(histogram_data),
+        roc_all=as_object_array(roc_all), roc_part=as_object_array(roc_part),
+        auc_all=np.asarray(auc_all), auc_part=np.asarray(auc_part),
+    )
 #%% # Load the voltage data
 fig = plt.figure(figsize=(16, 14))
 
@@ -64,16 +136,15 @@ ax.set_yticklabels([])
 
 gs = fig.add_gridspec(3, 1, left=0.07, right=0.97, top=0.96, bottom=0.67, hspace=0.15, height_ratios=[1, 1, 0.8])
 axs = [fig.add_subplot(gs[i, 0]) for i in range(3)]
-spk_data_plot = spk_data[::1000]
-axs[0].plot(spk_data_plot[spk_data_plot[:,1]<160, 0], spk_data_plot[spk_data_plot[:,1]<160,1], '.', clip_on=False)
-axs[0].plot(spk_data_plot[spk_data_plot[:,1]>=160, 0], spk_data_plot[spk_data_plot[:,1]>=160,1], '.', clip_on=False)
+axs[0].plot(raster_x[0], raster_y[0], '.', clip_on=False)
+axs[0].plot(raster_x[1], raster_y[1], '.', clip_on=False)
 axs[0].set_xlim(0, 4e5)
 axs[0].set_ylim(0, 200)
 axs[0].set_yticks([1,160,200])
 axs[0].set_ylabel('Neuronal ID', fontsize=12)
 axs[0].set_xlim(0, 4e5)
 axs[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
-axs[1].plot(ts, np.abs(DDV@v.flatten()))
+axs[1].plot(ts, projection_curve)
 axs[1].set_rasterized(True)
 axs[1].fill_between(ts[:500000], 0, 1, color='C1', alpha=0.4, lw=0, zorder=100)
 axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
@@ -81,10 +152,8 @@ axs[1].set_xlim(0,4e5)
 axs[1].set_ylim(0,1)
 axs[1].set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=13)
 axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
-tps, x, f, p = TCD_Ftest(ts, (DDV@v.T).flatten(), window_size=int(400/0.02), p_thresh=1e-18, return_delta_mean=True)
-print(tps)
-dT = x[1]-x[0]
-axs[2].plot(x, f, '-o', ms=4, clip_on=False)
+print(ftest_tps)
+axs[2].plot(ftest_x, ftest_f, '-o', ms=4, clip_on=False)
 # axs[2].semilogy(x, p, '-o', ms=4, clip_on=False)
 axs[2].set_xlim(0, 4e5)
 axs[2].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
@@ -94,52 +163,34 @@ axs[2].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True
 axs[2].set_xlabel('Time (ms)', fontsize=16)
 axs[2].set_ylabel('F statistics', fontsize=12)# rotation=0, va='center', ha='right')
 
-roc_all = []
-roc_part = []
-auc_all = []
-auc_part = []
-
 gs = fig.add_gridspec(3, 4, left=0.07, right=0.97, top=0.61, bottom=0.05, wspace=0.4, hspace=0.4)
 axs = [fig.add_subplot(gs[0, i]) for i in range(4)]
 
+def plot_cached_histogram(axis, cached_histogram):
+    legend_handles = []
+    for c_i, (connection, density, edges, kde_x, kde_y) in enumerate(cached_histogram):
+        color = f'C{1-c_i:d}'
+        axis.stairs(density, edges, fill=True, facecolor=color,
+                    alpha=0.5, edgecolor='black')
+        axis.plot(kde_x, kde_y, lw=1, color=color)
+        legend_handles.append(Rectangle((0, 0), 1, 1, facecolor=color,
+                                        edgecolor='black', alpha=0.5,
+                                        label=str(connection)))
+    axis.legend(handles=legend_handles, title='connection',
+                fontsize=10, title_fontsize=12)
+
 for i, axi in enumerate(axs):
-    estimator = CausalityEstimator(
-        path=data_path,
-        spk_fname=f'LIFNet-K=40mu=50_T=4.00e+05_part{i:d}',
-        N=200, T=1e5, n_thread=120, delay=0.0, dt=0.1, order=(1, 1), DT=1e4)
-    # Fetch the causality data as a pandas dataframe
-    data = estimator.fetch_data(new_run=True)
-    data_matched = c4u.match_features(data, N=200, conn_file=data_path/f'connect_matrix-p=0.020-s{i:d}_subnet.npy')
-    data_matched = apply_mask(data_matched, data_path/f'connect_matrix-p=0.020-s{i:d}_mask.npy')
-    data_recon, fig_data = c4u._reconstruction_analysis(
-        data_matched, x='log-CC', hist_range = (-10,-4), nbins = 100, # not implemented yet
-        algorithm='curve_fit')
-    sns.histplot(data=data_recon, x='log-CC', hue='connection', kde=True, bins=30, binrange=(-10, -4), ax=axi)
+    plot_cached_histogram(axi, histogram_data[i])
     axi.set_xlim(-10, -4)
     axi.set_xlabel('CC')
     axi.xaxis.set_major_formatter(sci_formatter)
-    roc_part.append(fig_data['roc_gt'])
-    auc_part.append(fig_data['auc_svm'])
 
 axs = [fig.add_subplot(gs[1, i]) for i in range(4)]
-estimator = CausalityEstimator(
-    path=data_path,
-    spk_fname='LIFNet-K=40mu=50_T=4.00e+05',
-    N=200, T=4e5, n_thread=120, delay=0.0, dt=0.1, order=(1, 1), DT=1e4)
-# Fetch the causality data as a pandas dataframe
-data = estimator.fetch_data(new_run=True)
 for i, axi in enumerate(axs):
-    data_matched = c4u.match_features(data, N=200, conn_file=data_path/f'connect_matrix-p=0.020-s{i:d}_subnet.npy')
-    data_matched = apply_mask(data_matched, data_path/f'connect_matrix-p=0.020-s{i:d}_mask.npy')
-    data_recon, fig_data = c4u._reconstruction_analysis(
-        data_matched, x='log-CC', hist_range = None, nbins = 100, # not implemented yet
-        algorithm='curve_fit')
-    sns.histplot(data=data_recon, x='log-CC', hue='connection', kde=True, bins=30, binrange=(-11, -4), ax=axi)
+    plot_cached_histogram(axi, histogram_data[4 + i])
     axi.set_xlabel('CC')
     axi.set_xlim(-11, -4)
     axi.xaxis.set_major_formatter(sci_formatter)
-    roc_all.append(fig_data['roc_gt'])
-    auc_all.append(fig_data['auc_svm'])
 
 axs = [fig.add_subplot(gs[2, i]) for i in range(4)]
 for i, axi in enumerate(axs):
@@ -153,15 +204,15 @@ for i, axi in enumerate(axs):
     axi.set_xlabel('FPR', fontsize=14)
     axi.set_ylabel('TPR', fontsize=14)
 
-fig.text(0.02, 0.97, 'a', fontsize=24, fontweight='bold')
-fig.text(0.02, 0.844, 'b', fontsize=24, fontweight='bold')
-fig.text(0.02, 0.746, 'c', fontsize=24, fontweight='bold')
-for i, lab in enumerate('defg'):
-    fig.text(0.02+i*0.245, 0.605, lab, fontsize=24, fontweight='bold')
-for i, lab in enumerate('hijk'):
-    fig.text(0.02+i*0.245, 0.40, lab, fontsize=24, fontweight='bold')
-for i, lab in enumerate('lmno'):
-    fig.text(0.02+i*0.245, 0.19, lab, fontsize=24, fontweight='bold')
+fig.text(0.02, 0.97, 'A', fontsize=24)
+fig.text(0.02, 0.844, 'B', fontsize=24)
+fig.text(0.02, 0.746, 'C', fontsize=24)
+for i, lab in enumerate('DEFG'):
+    fig.text(0.02+i*0.245, 0.605, lab, fontsize=24)
+for i, lab in enumerate('HIJK'):
+    fig.text(0.02+i*0.245, 0.40, lab, fontsize=24)
+for i, lab in enumerate('LMNO'):
+    fig.text(0.02+i*0.245, 0.19, lab, fontsize=24)
 
-fig.savefig(path / 'figures' / 'fig3_reconLIF.pdf', dpi=600)
+fig.savefig(path / 'figures' / 'fig4_reconLIF.pdf', dpi=600)
 # %%

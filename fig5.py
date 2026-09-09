@@ -5,6 +5,8 @@ path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 from pdif.myplot import sci_formatter
 from scipy.sparse.linalg import svds
+from scipy.stats import gaussian_kde
+from matplotlib.patches import Rectangle
 import pickle as pkl
 plt.rcParams.update({
     'axes.spines.top': False,
@@ -45,10 +47,52 @@ network_types = ['HH', 'ML']
 # with open(data_path / 'DDV_projs_to_chunk0_6e4.pkl', 'wb') as f:
 #     pkl.dump(DDV_projs, f)
 #%%
-with open(data_path / 'DDV_projs_to_chunk0_1e4.pkl', 'rb') as f:
-    DDV_projs = pkl.load(f)
-DDV_projs = DDV_projs[1:3]
-ts = np.arange(DDV_projs[0].shape[0])*0.02
+fig5_data_file = path / 'fig5_data.npz'
+if fig5_data_file.exists():
+    fig5_data = np.load(fig5_data_file, allow_pickle=True)
+    ts = fig5_data['ts']
+    projection_curves = fig5_data['projection_curves']
+    ftest_curves = fig5_data['ftest_curves']
+    ftest_tps = fig5_data['ftest_tps']
+    histogram_data = fig5_data['histogram_data']
+    roc_all = fig5_data['roc_all']
+    roc_part = fig5_data['roc_part']
+    auc_all = fig5_data['auc_all']
+    auc_part = fig5_data['auc_part']
+else:
+    with open(data_path / 'DDV_projs_to_chunk0_1e4.pkl', 'rb') as f:
+        DDV_projs = pkl.load(f)[1:3]
+    ts = np.arange(DDV_projs[0].shape[0])*0.02
+    projection_curves = []
+    ftest_curves = []
+    ftest_tps = []
+    for DDV_proj in DDV_projs:
+        projection_curves.append(np.abs(DDV_proj).flatten())
+        tps, x, f, p = TCD_Ftest(
+            ts, DDV_proj.flatten(), window_size=int(200/0.02),
+            p_thresh=1e-18, return_delta_mean=True)
+        ftest_curves.append((x, f))
+        ftest_tps.append(tps)
+    ts = ts[::100]
+    projection_curves = np.array(projection_curves, dtype=object)[:,::100]
+    ftest_curves = np.array(ftest_curves, dtype=object)
+    ftest_tps = np.array(ftest_tps, dtype=object)
+
+def get_histogram_data(data_recon):
+    result = []
+    for connection in data_recon['connection'].unique():
+        values = data_recon.loc[data_recon['connection'] == connection, 'log-CC'].to_numpy()
+        density, edges = np.histogram(values, bins=30, range=(-10, -2), density=True)
+        kde_x = np.linspace(-10, -2, 200)
+        kde_y = gaussian_kde(values)(kde_x) if values.size > 1 else np.zeros_like(kde_x)
+        result.append((connection, density, edges, kde_x, kde_y))
+    return np.array(result, dtype=object)
+
+def as_object_array(values):
+    result = np.empty(len(values), dtype=object)
+    for i, value in enumerate(values):
+        result[i] = value
+    return result
 #%% # Load the voltage data
 fig = plt.figure(figsize=(16, 9))
 
@@ -68,21 +112,19 @@ ax.set_yticklabels([])
 gs = fig.add_gridspec(4, 1, left=0.07, right=0.97, top=0.95, bottom=0.4, hspace=0.3, height_ratios=[1, 0.8, 1, 0.8])
 axs = np.array([fig.add_subplot(gs[i, 0]) for i in range(4)])
 axs = axs.reshape(2, 2)
-for axi, DDV_proj in zip(axs, DDV_projs):
-    axi[0].plot(ts, np.abs(DDV_proj).flatten())
-    ymax = np.abs(DDV_proj).max()
-    axi[0].fill_between(ts[:500000], 0, ymax, color='C1', alpha=0.4, lw=0, zorder=100)
+for axi, projection_curve, ftest_curve, tps in zip(
+        axs, projection_curves, ftest_curves, ftest_tps):
+    axi[0].plot(ts, projection_curve)
+    ymax = projection_curve.max()
+    axi[0].fill_between(ts[:5000], 0, ymax, color='C1', alpha=0.4, lw=0, zorder=100)
     axi[0].set_xlim(0,4e5)
     axi[0].set_ylim(0,ymax)
     axi[0].ticklabel_format(style='sci', scilimits=(0,0), axis='both', useMathText=True)
     axi[0].set_ylabel(
         r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
     axi[0].set_rasterized(True)
-    tps, x, f, p = TCD_Ftest(
-        ts, DDV_proj.flatten(), window_size=int(200/0.02),
-        p_thresh=1e-18, return_delta_mean=True)
     print(tps)
-    dT = x[1]-x[0]
+    x, f = ftest_curve
     axi[1].plot(x, f, '-o', ms=4, clip_on=False)
     # axi[1].semilogy(x, p, '-o', ms=4, clip_on=False)
     axi[1].set_xlim(0, 4e5)
@@ -97,14 +139,35 @@ for axi, DDV_proj in zip(axs, DDV_projs):
     axi[1].set_xlabel('Time (ms)', fontsize=16)
 #%
 
-roc_all = []
-roc_part = []
-auc_all = []
-auc_part = []
+if not fig5_data_file.exists():
+    roc_all = []
+    roc_part = []
+    auc_all = []
+    auc_part = []
+    histogram_data = []
 
 gs = fig.add_gridspec(1, 6, left=0.07, right=0.97, top=0.30, bottom=0.09, wspace=0.3)
 axs = [fig.add_subplot(gs[0, i]) for i in range(6)]
-for axi, nettype in zip(axs[1::3], network_types):
+def plot_cached_histogram(axis, cached_histogram):
+    legend_handles = []
+    for c_i, (connection, density, edges, kde_x, kde_y) in enumerate(cached_histogram):
+        color = f'C{1-c_i:d}'
+        axis.stairs(density, edges, fill=True,
+                    facecolor=color, alpha=0.5, edgecolor='black')
+        axis.plot(kde_x, kde_y, lw=1, color=color)
+        legend_handles.append(Rectangle((0, 0), 1, 1, facecolor=color,
+                                        edgecolor='black', alpha=0.5,
+                                        label=str(connection)))
+    axis.legend(handles=legend_handles, title='connection',
+                fontsize=10, title_fontsize=12)
+
+for i, (axi, nettype) in enumerate(zip(axs[1::3], network_types)):
+    if fig5_data_file.exists():
+        plot_cached_histogram(axi, histogram_data[i])
+        axi.set_xlabel('CC')
+        axi.set_xlim(-10, -2)
+        axi.xaxis.set_major_formatter(sci_formatter)
+        continue
     estimator = CausalityEstimator(
         path=data_path,
         spk_fname=nettype+'Net-K=40mu=50_T=4.00e+05',
@@ -116,7 +179,8 @@ for axi, nettype in zip(axs[1::3], network_types):
     data_recon, fig_data = c4u._reconstruction_analysis(
         data_matched, x='log-CC', hist_range = (-10,-2), nbins = 100, # not implemented yet
         algorithm='curve_fit')
-    sns.histplot(data=data_recon, x='log-CC', hue='connection', kde=True, bins=30, binrange=(-10, -2), ax=axi)
+    histogram_data.append(get_histogram_data(data_recon))
+    plot_cached_histogram(axi, histogram_data[-1])
     axi.set_xlabel('CC')
     axi.set_xlim(-10, -2)
     axi.xaxis.set_major_formatter(sci_formatter)
@@ -124,7 +188,13 @@ for axi, nettype in zip(axs[1::3], network_types):
     auc_all.append(fig_data['auc_svm'])
 
 #%
-for axi, nettype in zip(axs[::3], network_types):
+for i, (axi, nettype) in enumerate(zip(axs[::3], network_types)):
+    if fig5_data_file.exists():
+        plot_cached_histogram(axi, histogram_data[len(network_types) + i])
+        axi.set_xlabel('CC')
+        axi.set_xlim(-10, -2)
+        axi.xaxis.set_major_formatter(sci_formatter)
+        continue
     estimator = CausalityEstimator(
         path=data_path,
         spk_fname=nettype+'Net-K=40mu=50_T=4.00e+05',
@@ -136,7 +206,8 @@ for axi, nettype in zip(axs[::3], network_types):
     data_recon, fig_data = c4u._reconstruction_analysis(
         data_matched, x='log-CC', hist_range = (-10,-2), nbins = 100, # not implemented yet
         algorithm='curve_fit')
-    sns.histplot(data=data_recon, x='log-CC', hue='connection', kde=True, bins=30, binrange=(-10, -2), ax=axi)
+    histogram_data.append(get_histogram_data(data_recon))
+    plot_cached_histogram(axi, histogram_data[-1])
     axi.set_xlabel('CC')
     axi.set_xlim(-10, -2)
     axi.xaxis.set_major_formatter(sci_formatter)
@@ -154,11 +225,25 @@ for i, axi in enumerate(axs[2::3]):
     axi.set_xlabel('FPR', fontsize=14)
     axi.set_ylabel('TPR', fontsize=14)
 
-fig.text(0.02, 0.95, 'a', fontsize=24, fontweight='bold')
-fig.text(0.02, 0.63, 'b', fontsize=24, fontweight='bold')
-for i, lab in enumerate('cde'):
-    fig.text(0.02+i*0.165, 0.30, lab, fontsize=24, fontweight='bold')
-for i, lab in enumerate('fgh'):
-    fig.text(0.51+i*0.155, 0.30, lab, fontsize=24, fontweight='bold')
-fig.savefig(path / 'figures' / 'fig4_reconGeneral.pdf', dpi=600)
+if not fig5_data_file.exists():
+    np.savez(
+        fig5_data_file,
+        ts=ts,
+        projection_curves=projection_curves,
+        ftest_curves=as_object_array(ftest_curves),
+        ftest_tps=as_object_array(ftest_tps),
+        histogram_data=as_object_array(histogram_data),
+        roc_all=as_object_array(roc_all),
+        roc_part=as_object_array(roc_part),
+        auc_all=np.array(auc_all),
+        auc_part=np.array(auc_part),
+    )
+
+fig.text(0.02, 0.95, 'A', fontsize=24)
+fig.text(0.02, 0.63, 'B', fontsize=24)
+for i, lab in enumerate('CDE'):
+    fig.text(0.02+i*0.165, 0.30, lab, fontsize=24)
+for i, lab in enumerate('FGH'):
+    fig.text(0.51+i*0.155, 0.30, lab, fontsize=24)
+fig.savefig(path / 'figures' / 'fig5_reconGeneral.pdf', dpi=600)
 # %%
