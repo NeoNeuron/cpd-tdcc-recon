@@ -1,7 +1,7 @@
 #%%
 from common import *
 import pdif.utils as c4u
-path = Path(__file__).parents[1]
+path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 from pdif.myplot import sci_formatter
 plt.rcParams.update({
@@ -163,5 +163,5 @@ for i, lab in enumerate('hijk'):
 for i, lab in enumerate('lmno'):
     fig.text(0.02+i*0.245, 0.19, lab, fontsize=24, fontweight='bold')
 
-fig.savefig('fig3_reconLIF.pdf', dpi=600)
+fig.savefig(path / 'figures' / 'fig3_reconLIF.pdf', dpi=600)
 # %%

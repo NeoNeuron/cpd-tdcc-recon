@@ -1,7 +1,7 @@
 #%%
 from common import *
 import pdif.utils as c4u
-path = Path(__file__).parents[1]
+path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 from pdif.myplot import sci_formatter
 from scipy.sparse.linalg import svds
@@ -160,5 +160,5 @@ for i, lab in enumerate('cde'):
     fig.text(0.02+i*0.165, 0.30, lab, fontsize=24, fontweight='bold')
 for i, lab in enumerate('fgh'):
     fig.text(0.51+i*0.155, 0.30, lab, fontsize=24, fontweight='bold')
-fig.savefig('fig4_reconGeneral.pdf', dpi=600)
+fig.savefig(path / 'figures' / 'fig4_reconGeneral.pdf', dpi=600)
 # %%

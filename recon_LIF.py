@@ -1,6 +1,6 @@
 #%%
 from common import *
-path = Path(__file__).parents[1]
+path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 
 fname = 'LIFNet-K=40mu=50_T=4.00e+05'

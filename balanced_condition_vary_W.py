@@ -71,7 +71,7 @@ class LIFNet(bp.Network):
         curI2E = self.E.sum_delta_inputs(label='I')
         curE2I = self.I.sum_delta_inputs(label='E')
         curI2I = self.I.sum_delta_inputs(label='I')
-        return curE2E, curI2E, curE2I, curI2I
+        return curE2E, curI2E, curE2I, curI2I, self.E.spike, self.I.spike, self.E.V, self.I.V
     
     def save_neu_state(self):
         return {
@@ -88,24 +88,33 @@ from scipy.ndimage import gaussian_filter1d
 from functools import partial
 gf_window = 100
 gf = partial(gaussian_filter1d, sigma=gf_window)
-path = Path(__file__).parents[1]
-data_path = path / 'N4000'
+path = Path(__file__).parents[0]
+data_path = path / 'N4000-2-normal'
 
 #%% run model
 bm.set_dt(0.02)
 warmup_time = 20         # ms
 simulation_time = 1000   # ms
 curE2E_list, curE2I_list, curI2E_list, curI2I_list = [], [], [], []
+Espike_list, Ispike_list = [], []
+EV_list, IV_list = [], []
 state = None
-conn_path = data_path / f"connect_matrix-p=0.020-s0.npy"
-weight_paths = [data_path / f"connect_matrix-p=0.020-s0-d1.0-w{i:d}.npy" for i in range(2)]
-weight_paths[0] = None
+conn_path = data_path / f"connect_matrix-random-p=0.020-s0.npy"
+sigma = 0.5
+weight_paths = [data_path / f"connect_matrix-random-p=0.020-s0-d{sigma:.2f}-w{i:d}.npy" for i in range(2)]
+# weight_paths[0] = None
+# weight_paths = [None, None]
 for weight_path in weight_paths:
     model = LIFNet(num_neurons=4000, K=40, mu=50, conn_path=conn_path, poisson_seed=0, weight_path=weight_path)
     if state is None:
         indices = np.arange(int((warmup_time+simulation_time)/bm.get_dt()))
-        curE2E, curI2E, curE2I, curI2I = bm.for_loop(
+        curE2E, curI2E, curE2I, curI2I, \
+             Espike, Ispike, EV, IV = bm.for_loop(
             model.step_run, indices, progress_bar=True)
+        Espike = Espike[int(warmup_time/bm.get_dt()):, :]
+        Ispike = Ispike[int(warmup_time/bm.get_dt()):, :]
+        EV     = EV[int(warmup_time/bm.get_dt()):, :]
+        IV     = IV[int(warmup_time/bm.get_dt()):, :]
         curE2E = curE2E[int(warmup_time/bm.get_dt()):, :]
         curE2I = curE2I[int(warmup_time/bm.get_dt()):, :]
         curI2E = curI2E[int(warmup_time/bm.get_dt()):, :]
@@ -114,38 +123,134 @@ for weight_path in weight_paths:
     else:
         model.load_neu_state(state)
         indices = np.arange(int(simulation_time/bm.get_dt()))
-        curE2E, curI2E, curE2I, curI2I = bm.for_loop(
+        curE2E, curI2E, curE2I, curI2I, \
+            Espike, Ispike, EV, IV = bm.for_loop(
             model.step_run, indices, progress_bar=True)
 
+    Espike_list.append(Espike)
+    Ispike_list.append(Ispike)
+    EV_list.append(EV)
+    IV_list.append(IV)
     curE2E_list.append(curE2E)
     curE2I_list.append(curE2I)
     curI2E_list.append(curI2E)
     curI2I_list.append(curI2I)
 
 ts = np.arange(int(len(weight_paths)*simulation_time/bm.get_dt())) * bm.get_dt()
+Espike = np.concatenate(Espike_list, axis=0)
+Ispike = np.concatenate(Ispike_list, axis=0)
+EV = np.concatenate(EV_list, axis=0)
+IV = np.concatenate(IV_list, axis=0)
 curE2E = np.concatenate(curE2E_list, axis=0)
 curE2I = np.concatenate(curE2I_list, axis=0)
 curI2E = np.concatenate(curI2E_list, axis=0)
 curI2I = np.concatenate(curI2I_list, axis=0)
 #%%
 fig, ax = plt.subplots(1,2, figsize=(16, 4), sharex=True, sharey=True)
-ax[0].plot(ts, gf(curE2E[:, 0]), label='Excitatory inputs')
-ax[0].plot(ts, gf(curI2E[:, 0]), label='Inhibitory inputs')
-ax[0].plot(ts, gf(curE2E[:, 0] + curI2E[:, 0]), label='Total inputs')
-ax[0].axhline(np.mean(curE2E[:, 0] + curI2E[:, 0]), color='C3', label='Total mean inputs')
-ax[1].plot(ts, gf(curE2I[:, 0]), label='Excitatory inputs')
-ax[1].plot(ts, gf(curI2I[:, 0]), label='Inhibitory inputs')
-ax[1].plot(ts, gf(curE2I[:, 0] + curI2I[:, 0]), label='Total inputs')
-ax[1].axhline(np.mean(curE2I[:, 0] + curI2I[:, 0]), color='C3', label='Total mean inputs')
+idx = 200
+ax[0].plot(ts, gf(curE2E[:, idx]), label='Excitatory inputs')
+ax[0].plot(ts, gf(curI2E[:, idx]), label='Inhibitory inputs')
+ax[0].plot(ts, gf(curE2E[:, idx] + curI2E[:, idx]), label='Total inputs')
+ax[0].axhline(np.mean(curE2E[:, idx] + curI2E[:, idx]), color='C3', label='Total mean inputs')
+ax[1].plot(ts, gf(curE2I[:, idx]), label='Excitatory inputs')
+ax[1].plot(ts, gf(curI2I[:, idx]), label='Inhibitory inputs')
+ax[1].plot(ts, gf(curE2I[:, idx] + curI2I[:, idx]), label='Total inputs')
+ax[1].axhline(np.mean(curE2I[:, idx] + curI2I[:, idx]), color='C3', label='Total mean inputs')
 for axi in ax:
     axi.axhline(0, ls='--', color='k', lw=1)
     axi.legend()
     axi.set_xlabel('Time (ms)')
     axi.set_ylabel('Input currents')
 # ax[0].set_xlim(490,610)
+#%%
+from scipy.stats import norm
+rateE = (Espike.sum()/Espike.shape[1])/(Espike.shape[0]*bm.get_dt())
+rateI = (Ispike.sum()/Ispike.shape[1])/(Ispike.shape[0]*bm.get_dt())
+est_std = estimate_std(rateE, rate_I=rateI, dt=bm.get_dt())
+# ts = ts[1:-1]
+xgrid = np.linspace(-0.1, 0.1, 100)
+DDV = np.diff(np.hstack([EV,IV]), n=2, axis=0)
+plt.figure(figsize=(5, 4))
+plt.hist(np.mean(DDV, axis=1), bins=100, density=True)
+plt.plot(xgrid, norm.pdf(xgrid, 0, est_std), 'r', linewidth=2)
+plt.xlabel(r'$\langle\Delta^2 v_i\rangle_i$', fontsize=20)
+plt.ylabel('Density', fontsize=20)
+#%%
+ts = np.arange(int(len(weight_paths)*simulation_time/bm.get_dt())) * bm.get_dt()
+fig, ax = plt.subplots(1,1, figsize=(16, 14), sharex=True, sharey=True)
+spike = np.hstack([Espike,Ispike])
+bp.visualize.raster_plot(ts, spike, ax=ax, xlabel='Time (ms)', ylabel='Neuron index', show=False)
+# bp.visualize.raster_plot(ts, Ispike, ax=ax, xlabel='Time (ms)', ylabel='Neuron index', show=False)
+# ax.set_xlim(800, 1200)
+# ax.set_ylim(3000, 3280)
+# ax[0].plot(ts, Espike[:, 0], label='E neuron spikes')
+# ax[0].plot(ts, Ispike[:, 0], label='I neuron spikes')
+#%%
+from pdif.utils import ACF
+acfs = [ACF(spike[:,i], nlags=1000) for i in range(4000)]
+acfs = np.array(acfs)
+#%%
+dt = 0.02
+fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+ax.plot(np.arange(acfs.shape[1])*dt, np.nanmean(acfs[:3200], axis=0), label='E', color='C0')
+ax.fill_between(np.arange(acfs.shape[1])*dt, np.nanmean(acfs[:3200], axis=0)+np.nanstd(acfs[:3200], axis=0), np.nanmean(acfs[:3200], axis=0)-np.nanstd(acfs[:3200], axis=0), color='C0', alpha=0.5)
+ax.plot(np.arange(acfs.shape[1])*dt, np.nanmean(acfs[3200:], axis=0), label='I', color='C1')
+ax.fill_between(np.arange(acfs.shape[1])*dt, np.nanmean(acfs[3200:], axis=0)+np.nanstd(acfs[3200:], axis=0), np.nanmean(acfs[3200:], axis=0)-np.nanstd(acfs[3200:], axis=0), color='C1', alpha=0.5)
+ax.set_ylim(-0.01, 0.05)
+#%%
+dt = 0.02
+fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+ax.plot(np.arange(acfs.shape[1])*dt, np.nanmean(acfs[3040:3200], axis=0), label='E', color='C0')
+ax.fill_between(np.arange(acfs.shape[1])*dt, np.nanmean(acfs[3040:3200], axis=0)+np.nanstd(acfs[3040:3200], axis=0), np.nanmean(acfs[3040:3200], axis=0)-np.nanstd(acfs[3040:3200], axis=0), color='C0', alpha=0.5)
+ax.plot(np.arange(acfs.shape[1])*dt, np.nanmean(acfs[3200:3240], axis=0), label='I', color='C1')
+ax.fill_between(np.arange(acfs.shape[1])*dt, np.nanmean(acfs[3200:3240], axis=0)+np.nanstd(acfs[3200:3240], axis=0), np.nanmean(acfs[3200:3240], axis=0)-np.nanstd(acfs[3200:3240], axis=0), color='C1', alpha=0.5)
+# ax.set_ylim(-0.01, 0.05)
+#%%
+import scipy.sparse as sp
+_, s, v = sp.linalg.svds(DDV[0:25000], k=1, return_singular_vectors='vh', which='SM', maxiter=1000)
+#%%
+fig, ax = plt.subplots(2,1, figsize=(16, 8), sharex=True)
+ax[0].plot(ts[1:-1], np.abs(DDV@v.T), label='V')
+#%%
+from scipy.optimize import curve_fit
+def gaussian(x, a, x0, sigma):
+    return a * np.exp(-(x - x0)**2 / (2 * sigma**2))
+plt.figure(figsize=(5, 4))
+counts, bins, _ = plt.hist(DDV@v.T, bins=100, density=True)
+bin_centers = 0.5*(bins[1:] + bins[:-1])
+# plt.plot(xgrid, norm.pdf(xgrid, 0, est_std), 'r', linewidth=2)
+# Fit the histogram data to a Gaussian function
+popt, _ = curve_fit(gaussian, bin_centers, counts, p0=[1, 0, 0.1])
+x_fit = np.linspace(-0.5, 0.5, 100)
+y_fit = gaussian(x_fit, *popt)
+plt.plot(x_fit, y_fit, 'r-', label='Gaussian fit')
+plt.xlabel(r'$\langle\Delta^2 v_i\rangle_i$', fontsize=20)
+plt.ylabel('Density', fontsize=20)
+
+
 
 #%%
-fig, ax = plt.subplots(4, 1, figsize=(16, 8), 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#%%
+fig, ax = plt.subplots(4, 1, figsize=(16, 8),
                        gridspec_kw={'hspace': 0.2, 'top': 0.95, 'bottom': 0.4, 'left': 0.05},
                        sharex=True, sharey=True)
 # v_ = np.random.randn(DDV_W.shape[1])
@@ -233,7 +338,7 @@ fig.text(0.01, 0.95, 'a', fontsize=24, fontweight='bold')
 fig.text(0.01, 0.32, 'b', fontsize=24, fontweight='bold')
 fig.text(0.47, 0.95, 'c', fontsize=24, fontweight='bold')
 fig.text(0.47, 0.32, 'd', fontsize=24, fontweight='bold')
-fig.savefig('fig1_EI32k_raster.pdf', dpi=300, bbox_inches='tight')
+fig.savefig(path / 'figures' / 'fig1_EI32k_raster.pdf', dpi=300, bbox_inches='tight')
 
 
 

@@ -6,7 +6,7 @@ matplotlib
 seaborn
 
 # Brian2-based Hodgkin-Huxley simulation used in
-# cp_recon/57 - 0 + 0 变点检测（四）.ipynb (not needed for anything else here):
+# 57 - 0 + 0 变点检测（四）.ipynb (not needed for anything else here):
 brian2==2.7.0
 
 # GPU-accelerated network simulation (EINet.py) needs jax/brainpy, which use a

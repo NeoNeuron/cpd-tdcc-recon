@@ -8,7 +8,7 @@ plt.rcParams.update({
     'ytick.labelsize': 12,
 })
 from matplotlib.image import imread
-path = Path(__file__).parents[1]
+path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 conn_paths = [data_path / f"connect_matrix-p=0.020-s{i:d}.npy" for i in range(2)]
 
@@ -120,7 +120,7 @@ fig.text(0.38, 0.95, 'b', fontsize=24, fontweight='bold')
 fig.text(0.01, 0.55, 'c', fontsize=24, fontweight='bold')
 fig.text(0.38, 0.55, 'd', fontsize=24, fontweight='bold')
 fig.text(0.38, 0.15, 'e', fontsize=24, fontweight='bold')
-fig.savefig('fig2_schematics.pdf', dpi=600 )
+fig.savefig(path / 'figures' / 'fig2_schematics.pdf', dpi=600 )
 #%%
 #%% run model
 import brainpy as bp

@@ -1,7 +1,7 @@
 #%%
 from common import *
 import pdif.utils as c4u
-path = Path(__file__).parents[1]
+path = Path(__file__).parents[0]
 data_path = path / 'N4000-2-normal'
 from pdif.myplot import sci_formatter
 from scipy.sparse.linalg import svds
@@ -315,5 +315,5 @@ for i, lab in enumerate('cfi'):
 for i, lab in enumerate('jk'):
     fig.text(0.02+i*0.5, 0.25, lab, fontsize=24, fontweight='bold')
 
-fig.savefig('fig5_reconLIF_vary_weights.pdf', dpi=600)
+fig.savefig(path / 'figures' / 'fig5_reconLIF_vary_weights.pdf', dpi=600)
 #%%
