@@ -25,7 +25,7 @@ else:
     os.environ['CUDA_VISIBLE_DEVICES'] = args.cuda
 import brainpy as bp
 import brainpy.math as bm
-import causal4.utils as utils
+import pdif.utils as utils
 if args.cuda == '':
     bm.set_platform('cpu')
 else:

@@ -1,9 +1,9 @@
 #%%
 from common import *
-import causal4.utils as c4u
+import pdif.utils as c4u
 path = Path(__file__).parents[1]
 data_path = path / 'N4000'
-from causal4.myplot import sci_formatter
+from pdif.myplot import sci_formatter
 plt.rcParams.update({
     'axes.spines.top': False,
     'axes.spines.right': False,

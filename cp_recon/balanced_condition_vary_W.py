@@ -186,7 +186,7 @@ bp.visualize.raster_plot(ts, spike, ax=ax, xlabel='Time (ms)', ylabel='Neuron in
 # ax[0].plot(ts, Espike[:, 0], label='E neuron spikes')
 # ax[0].plot(ts, Ispike[:, 0], label='I neuron spikes')
 #%%
-from causal4.utils import ACF
+from pdif.utils import ACF
 acfs = [ACF(spike[:,i], nlags=1000) for i in range(4000)]
 acfs = np.array(acfs)
 #%%
