@@ -1,4 +1,4 @@
-causal4 @ git+https://github.com/NeoNeuron/causal4-core.git
+causal4 @ git+https://github.com/NeoNeuron/PDIF.git
 numpy
 scipy
 pandas

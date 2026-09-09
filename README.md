@@ -40,7 +40,7 @@ model types:
 pip install -r requirements.txt
 ```
 
-This installs [`causal4`](https://github.com/NeoNeuron/causal4-core) (the shared causality-estimation package —
+This installs [`causal4`](https://github.com/NeoNeuron/PDIF) (the shared causality-estimation package —
 `pip install` builds its C++ backend automatically, no separate `make` step) plus the CPU-side Python
 dependencies. `EINet.py`'s GPU packages (`jax`, `brainpy`) need a custom index/CUDA suffix that plain
 `pip install -r` can't resolve — install them separately per the commented instructions in `requirements.txt`.
