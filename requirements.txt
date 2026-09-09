@@ -5,8 +5,15 @@ pandas
 matplotlib
 seaborn
 
+# Brian2-based Hodgkin-Huxley simulation used in
+# cp_recon/57 - 0 + 0 变点检测（四）.ipynb (not needed for anything else here):
+brian2==2.7.0
+
 # GPU-accelerated network simulation (EINet.py) needs jax/brainpy, which use a
 # custom package index and a local CUDA version suffix that `pip install -r`
 # can't resolve on its own — install these separately, see README.md:
 #   pip install jax==0.4.28 jaxlib==0.4.28+cuda12.cudnn89 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-#   pip install brainpy==2.6.0.post20240803 brainpylib==0.3.1
+#   pip install brainpy==2.6.0 brainpylib==0.3.1
+# brainstate/braintaichi/brainunit are transitive deps that this brainpy
+# version pulls in (custom operators + unit system) but doesn't pin itself,
+# so they're listed explicitly to reproduce the tested environment.

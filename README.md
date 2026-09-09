@@ -1,6 +1,6 @@
 # CPD-TDCC: change-point-aware network reconstruction
 
-Code for a paper (planned submission to *Philosophical Transactions of the Royal Society B*) proposing
+Code for the paper titled "Network structural change point detection and reconstruction for balanced neuronal networks", proposing
 **CPD-TDCC** — Change-Point Detection + Time-Delayed Correlation-Coefficient — a pipeline for reconstructing
 network connectivity when the underlying structure (topology or coupling strength) changes partway through a
 recording, rather than staying fixed for the whole trial as most causal-connectivity methods assume.
@@ -34,16 +34,28 @@ model types:
 - `EINet.py` — this repo's only simulation dependency (pure-Python, `brainpy`/`jax`-based E-I network simulator).
   No C++ simulators or build step are needed for this paper at all.
 
-## Dependencies
+## Get Started
 
 ```bash
 pip install -r requirements.txt
 ```
 
-This installs [`causal4`](https://github.com/NeoNeuron/PDIF) (the shared causality-estimation package —
-`pip install` builds its C++ backend automatically, no separate `make` step) plus the CPU-side Python
-dependencies. `EINet.py`'s GPU packages (`jax`, `brainpy`) need a custom index/CUDA suffix that plain
-`pip install -r` can't resolve — install them separately per the commented instructions in `requirements.txt`.
+This installs [`pdif`](https://github.com/NeoNeuron/PDIF) (the shared causality-estimation package —
+`pip install` builds its C++ backend automatically, no separate `make` step), CPU-side Python dependencies
+(numpy, scipy, pandas, matplotlib, seaborn), and `brian2` (for the Hodgkin-Huxley notebook).
+
+`EINet.py`'s GPU packages (`jax`, `brainpy`) need a custom index/CUDA suffix that plain `pip install -r`
+can't resolve, so install them separately:
+
+```bash
+pip install jax==0.4.28 jaxlib==0.4.28+cuda12.cudnn89 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install brainpy==2.6.0 brainpylib==0.3.1
+```
+
+`brainstate`/`braintaichi`/`brainunit` are transitive deps that this `brainpy` version pulls in (custom
+operators + unit system) but doesn't pin itself, so they're listed explicitly to reproduce the tested
+environment. These exact versions are also recorded in the commented-out lines at the bottom of
+`requirements.txt`.
 
 ## Known gaps (pre-existing, not introduced by extracting this repo)
 
