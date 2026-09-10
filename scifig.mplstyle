@@ -1,0 +1,68 @@
+# SciFig Design System - base rcParams.
+# From the SciFig Design System project (source/sci_style.mplstyle), verbatim
+# except for mathtext.fontset -- see the note on that line.
+# Sizes here are specified at FINAL PRINT SIZE (FIGSIZE['double'] = 7.2 in wide).
+# These figures are drawn at 16 in, so scifig.use_scifig() multiplies every
+# point-size entry by SCALE. Edit tokens in scifig.py, not here.
+
+# --- Fonts ---
+font.family:         sans-serif
+font.sans-serif:     Arial, Helvetica, DejaVu Sans
+font.size:            8
+# Deliberate deviation from SciFig (which specifies dejavusans): Figure 1 sets
+# its math in STIXGeneral, and matching its equations wins here.
+mathtext.fontset:     stix
+
+# --- Axes ---
+axes.titlesize:       9
+axes.titleweight:     bold
+axes.labelsize:       8
+axes.labelweight:     regular
+axes.linewidth:       0.75
+axes.edgecolor:       0.15
+axes.spines.top:      False
+axes.spines.right:    False
+axes.grid:            False
+axes.axisbelow:       True
+axes.prop_cycle:      cycler('color', ['E69F00','56B4E9','009E73','D55E00','0072B2','CC79A7','F0E442','000000'])
+
+# --- Ticks ---
+xtick.labelsize:      7
+ytick.labelsize:      7
+xtick.major.width:    0.75
+ytick.major.width:    0.75
+xtick.minor.width:    0.5
+ytick.minor.width:    0.5
+xtick.major.size:     3
+ytick.major.size:     3
+xtick.color:          0.15
+ytick.color:          0.15
+xtick.direction:      out
+ytick.direction:      out
+
+# --- Lines & markers ---
+lines.linewidth:       1.25
+lines.markersize:      4
+lines.solid_capstyle:  round
+patch.linewidth:       0.75
+patch.edgecolor:       0.15
+
+# --- Legend ---
+legend.fontsize:       7
+legend.frameon:        False
+legend.handlelength:   1.5
+legend.borderaxespad:  0.3
+
+# --- Figure ---
+figure.dpi:            150
+figure.facecolor:      white
+figure.autolayout:     False
+
+# --- Saving (vector-safe, editable text) ---
+savefig.dpi:           300
+savefig.transparent:   True
+savefig.bbox:          tight
+savefig.pad_inches:    0.02
+pdf.fonttype:          42
+ps.fonttype:           42
+svg.fonttype:          none

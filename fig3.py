@@ -1,18 +1,12 @@
 #%%
 from common import *
-plt.rcParams.update({
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-    'axes.labelsize': 16,
-    'xtick.labelsize': 12,
-    'ytick.labelsize': 12,
-})
+from scifig import *
 from matplotlib.image import imread
+use_scifig()
 path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 conn_paths = [data_path / f"connect_matrix-p=0.020-s{i:d}.npy" for i in range(2)]
 
-v_rec = np.load(data_path / 'conn_s0_SM_sv.npy')
 fig3_data_file = path / 'fig3_data.npz'
 using_fig3_cache = fig3_data_file.exists()
 if using_fig3_cache:
@@ -26,6 +20,7 @@ if using_fig3_cache:
     tcd_f = fig3_data['tcd_f']
     tcd_delta = float(fig3_data['tcd_delta'])
 else:
+    v_rec = np.load(data_path / 'conn_s0_SM_sv.npy')
     data_buff = np.load(data_path / 'N4000_chunk0&1_data.npz')
     ts = data_buff['ts']
     curP = data_buff['curP']
@@ -76,26 +71,14 @@ ax[1].axis('off')
 
 gs = fig.add_gridspec(1, 1, left=0.5, right=0.98, top=1.00, bottom=0.95)
 ax = fig.add_subplot(gs[0, 0])
-ax.fill_between([0,1], -0.5, 1, color='C2', alpha=0.4, lw=0)
-ax.fill_between([1,2], -0.5, 1, color='C3', alpha=0.4, lw=0)
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.spines['left'].set_visible(False)
-ax.set_xlim(0,2)
-ax.set_ylim(-0.5, 0.8)
-# ax.set_xlabel('Time', fontsize=14)
-ax.set_xticks([])
-ax.set_yticks([])
-ax.set_xticklabels([])
-ax.set_yticklabels([])
-ax.text(0.5, 0.0, r'$\mathbf{W}_1$', fontsize=18, fontweight='bold', ha='center', va='center')
-ax.text(1.5, 0.0, r'$\mathbf{W}_2$', fontsize=18, fontweight='bold', ha='center', va='center')
+state_strip(ax, 2, ymin=-0.5, ymax=0.8, fontsize=18,
+            hide_spines=('top', 'right', 'left'))
 
 
 gd = fig.add_gridspec(4,1, left=0.5, right=0.98, top=0.94, bottom=0.63, hspace=0.10)
 ax = [fig.add_subplot(gdi) for gdi in gd]
 for axis, curve, curve_ts in zip(ax, projected_curves, (ts[1:-1], ts[1:-1], ts[1:], ts[1:])):
-    axis.plot(curve_ts, curve, label='')
+    axis.plot(curve_ts, curve, label='', color=COLORS['sky'], lw=0.9)
 for axi in ax:
     axi.set_rasterized(True)
 ylabels = [r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}\rangle|$',
@@ -114,7 +97,7 @@ for i, ylabel in enumerate(ylabels):
 gd = fig.add_gridspec(4,1, left=0.5, right=0.98, top=0.53, bottom=0.24)
 ax = [fig.add_subplot(gdi) for gdi in gd]
 for axis, curve, curve_ts in zip(ax, singular_curves, (ts[1:-1], ts[1:-1], ts[1:], ts[1:])):
-    axis.plot(curve_ts, curve, label='')
+    axis.plot(curve_ts, curve, label='', color=COLORS['green'], lw=0.9)
 for axi in ax:
     axi.set_rasterized(True)
 
@@ -123,7 +106,7 @@ ylabels = [r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}\rangle|$',
            r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle|$',
            r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{rec}\rangle|$']
 for i, ylabel in enumerate(ylabels):
-    ax[i].fill_between(ts[:25000], 0, 0.6, color='C1', alpha=0.2, lw=0, zorder=10)
+    highlight_span(ax[i], ts[0], ts[24999])
     ax[i].set_xlim(0, 2000)
     ax[i].set_ylim(0, 0.6)
     ax[i].set_ylabel(ylabel, fontsize=10, rotation=0, va='center', ha='right')
@@ -135,19 +118,19 @@ for i, ylabel in enumerate(ylabels):
 gs = fig.add_gridspec(1, 1, left=0.5, right=0.98, top=0.14, bottom=0.08)
 ax = fig.add_subplot(gs[0, 0])
 print(tps)
-ax.plot(tcd_x, tcd_f, '-o', ms=4, clip_on=False)
+ax.plot(tcd_x, tcd_f, **ftest_style())
 ax.set_xlim(0, 2000)
 for tp in tps:
-    ax.fill_between([tp-tcd_delta/2, tp+tcd_delta/2], 0, 5, color='C3', alpha=0.6, lw=0, zorder=10)
+    ax.axvspan(tp-tcd_delta/2, tp+tcd_delta/2, color=DETECT['fill'], lw=0, zorder=0)
+    ax.axvline(tp, color=DETECT['accent'], lw=2.0, zorder=1)
 ax.set_ylim(0,5)
 ax.set_xlabel('Time (ms)')
 ax.set_ylabel('F statistics', rotation=0, fontsize=14, va='center', ha='right')
 
-fig.text(0.01, 0.95, 'A', fontsize=24)
-fig.text(0.38, 0.95, 'B', fontsize=24)
-fig.text(0.01, 0.55, 'C', fontsize=24)
-fig.text(0.38, 0.55, 'D', fontsize=24)
-fig.text(0.38, 0.15, 'E', fontsize=24)
+panel_labels(fig, [
+    (0.01, 0.95, 'A'), (0.38, 0.95, 'B'), (0.01, 0.55, 'C'),
+    (0.38, 0.55, 'D'), (0.38, 0.15, 'E'),
+])
 fig.savefig(path / 'figures' / 'fig3_schematics.pdf', dpi=600 )
 #%%
 if using_fig3_cache:

@@ -1,20 +1,14 @@
 #%%
 from common import *
+from scifig import *
 import pdif.utils as c4u
 path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 from pdif.myplot import sci_formatter
 from scipy.sparse.linalg import svds
 from scipy.stats import gaussian_kde
-from matplotlib.patches import Rectangle
 import pickle as pkl
-plt.rcParams.update({
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-    'axes.labelsize': 16,
-    'xtick.labelsize': 12,
-    'ytick.labelsize': 12,
-})
+use_scifig()
 
 # T_single = 1e5
 # for i in range(4):
@@ -98,25 +92,16 @@ fig = plt.figure(figsize=(16, 9))
 
 gs = fig.add_gridspec(1, 1, left=0.07, right=0.97, top=1., bottom=0.96)
 ax = fig.add_subplot(gs[0, 0])
-for i in range(4):
-    ax.fill_between([i,i+1], -0.5, 0.5, color=f'C{i:d}', alpha=0.4, lw=0)
-    ax.text(i+0.5, 0.0, r'$\mathbf{W}_{%d}$'%(i+1), fontsize=24, fontweight='bold', ha='center', va='center')
-ax.spines['left'].set_visible(False)
-ax.set_xlim(0,4)
-ax.set_ylim(-0.5, 0.5)
-ax.set_xticks([])
-ax.set_yticks([])
-ax.set_xticklabels([])
-ax.set_yticklabels([])
+state_strip(ax, 4)
 
 gs = fig.add_gridspec(4, 1, left=0.07, right=0.97, top=0.95, bottom=0.4, hspace=0.3, height_ratios=[1, 0.8, 1, 0.8])
 axs = np.array([fig.add_subplot(gs[i, 0]) for i in range(4)])
 axs = axs.reshape(2, 2)
 for axi, projection_curve, ftest_curve, tps in zip(
         axs, projection_curves, ftest_curves, ftest_tps):
-    axi[0].plot(ts, projection_curve)
+    axi[0].plot(ts, projection_curve, color=COLORS['green'], lw=0.5)
     ymax = projection_curve.max()
-    axi[0].fill_between(ts[:5000], 0, ymax, color='C1', alpha=0.4, lw=0, zorder=100)
+    highlight_span(axi[0], ts[0], ts[4999])
     axi[0].set_xlim(0,4e5)
     axi[0].set_ylim(0,ymax)
     axi[0].ticklabel_format(style='sci', scilimits=(0,0), axis='both', useMathText=True)
@@ -125,7 +110,7 @@ for axi, projection_curve, ftest_curve, tps in zip(
     axi[0].set_rasterized(True)
     print(tps)
     x, f = ftest_curve
-    axi[1].plot(x, f, '-o', ms=4, clip_on=False)
+    axi[1].plot(x, f, **ftest_style())
     # axi[1].semilogy(x, p, '-o', ms=4, clip_on=False)
     axi[1].set_xlim(0, 4e5)
     axi[1].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
@@ -148,22 +133,9 @@ if not fig5_data_file.exists():
 
 gs = fig.add_gridspec(1, 6, left=0.07, right=0.97, top=0.30, bottom=0.09, wspace=0.3)
 axs = [fig.add_subplot(gs[0, i]) for i in range(6)]
-def plot_cached_histogram(axis, cached_histogram):
-    legend_handles = []
-    for c_i, (connection, density, edges, kde_x, kde_y) in enumerate(cached_histogram):
-        color = f'C{1-c_i:d}'
-        axis.stairs(density, edges, fill=True,
-                    facecolor=color, alpha=0.5, edgecolor='black')
-        axis.plot(kde_x, kde_y, lw=1, color=color)
-        legend_handles.append(Rectangle((0, 0), 1, 1, facecolor=color,
-                                        edgecolor='black', alpha=0.5,
-                                        label=str(connection)))
-    axis.legend(handles=legend_handles, title='connection',
-                fontsize=10, title_fontsize=12)
-
 for i, (axi, nettype) in enumerate(zip(axs[1::3], network_types)):
     if fig5_data_file.exists():
-        plot_cached_histogram(axi, histogram_data[i])
+        hist_with_kde(axi, histogram_data[i])
         axi.set_xlabel('CC')
         axi.set_xlim(-10, -2)
         axi.xaxis.set_major_formatter(sci_formatter)
@@ -180,7 +152,7 @@ for i, (axi, nettype) in enumerate(zip(axs[1::3], network_types)):
         data_matched, x='log-CC', hist_range = (-10,-2), nbins = 100, # not implemented yet
         algorithm='curve_fit')
     histogram_data.append(get_histogram_data(data_recon))
-    plot_cached_histogram(axi, histogram_data[-1])
+    hist_with_kde(axi, histogram_data[-1])
     axi.set_xlabel('CC')
     axi.set_xlim(-10, -2)
     axi.xaxis.set_major_formatter(sci_formatter)
@@ -190,7 +162,7 @@ for i, (axi, nettype) in enumerate(zip(axs[1::3], network_types)):
 #%
 for i, (axi, nettype) in enumerate(zip(axs[::3], network_types)):
     if fig5_data_file.exists():
-        plot_cached_histogram(axi, histogram_data[len(network_types) + i])
+        hist_with_kde(axi, histogram_data[len(network_types) + i])
         axi.set_xlabel('CC')
         axi.set_xlim(-10, -2)
         axi.xaxis.set_major_formatter(sci_formatter)
@@ -207,7 +179,7 @@ for i, (axi, nettype) in enumerate(zip(axs[::3], network_types)):
         data_matched, x='log-CC', hist_range = (-10,-2), nbins = 100, # not implemented yet
         algorithm='curve_fit')
     histogram_data.append(get_histogram_data(data_recon))
-    plot_cached_histogram(axi, histogram_data[-1])
+    hist_with_kde(axi, histogram_data[-1])
     axi.set_xlabel('CC')
     axi.set_xlim(-10, -2)
     axi.xaxis.set_major_formatter(sci_formatter)
@@ -215,8 +187,8 @@ for i, (axi, nettype) in enumerate(zip(axs[::3], network_types)):
     auc_part.append(fig_data['auc_svm'])
 
 for i, axi in enumerate(axs[2::3]):
-    axi.plot(roc_all[i][0], roc_all[i][1], color='C2', lw=4, label=f'raw data: {auc_all[i]:.3f}', clip_on=False)
-    axi.plot(roc_part[i][0], roc_part[i][1], color='C3', lw=4, label=f'CPD data: {auc_part[i]:.3f}', clip_on=False)
+    axi.plot(roc_all[i][0], roc_all[i][1], color=METHOD_PAIR[0], lw=2.5, label=f'raw data: {auc_all[i]:.3f}', clip_on=False)
+    axi.plot(roc_part[i][0], roc_part[i][1], color=METHOD_PAIR[1], lw=2.5, label=f'CPD data: {auc_part[i]:.3f}', clip_on=False)
     axi.set_xlim(0, 1)
     axi.set_ylim(0, 1)
     axi.set_xticks([0, 0.5, 1], ['0', '0.5', '1'])
@@ -239,11 +211,10 @@ if not fig5_data_file.exists():
         auc_part=np.array(auc_part),
     )
 
-fig.text(0.02, 0.95, 'A', fontsize=24)
-fig.text(0.02, 0.63, 'B', fontsize=24)
-for i, lab in enumerate('CDE'):
-    fig.text(0.02+i*0.165, 0.30, lab, fontsize=24)
-for i, lab in enumerate('FGH'):
-    fig.text(0.51+i*0.155, 0.30, lab, fontsize=24)
+panel_labels(fig, [
+    (0.02, 0.95, 'A'), (0.02, 0.63, 'B'),
+    *[(0.02+i*0.165, 0.30, lab) for i, lab in enumerate('CDE')],
+    *[(0.51+i*0.155, 0.30, lab) for i, lab in enumerate('FGH')],
+])
 fig.savefig(path / 'figures' / 'fig5_reconGeneral.pdf', dpi=600)
 # %%

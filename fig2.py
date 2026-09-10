@@ -1,20 +1,9 @@
 # %%
 from common import *
-import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-import brainpy as bp
-import brainpy.math as bm
-bm.set_platform('gpu')
-print(bp.__version__)
-from EINet import LIFNet_monitor, get_IJcomm
+from scifig import *
 
 from scipy.stats import norm
-plt.rcParams.update({'axes.spines.top': False,
-                 'axes.spines.right': False,
-                 'axes.labelsize': 16,
-                 'xtick.labelsize': 12,
-                 'ytick.labelsize': 12,
-                 })
+use_scifig()
 
 def estimate_std(rate:float, type:str='total',
                  dt:float=0.02, rate_I:float=None,
@@ -82,6 +71,14 @@ if using_fig2_cache:
     ext_std_e = float(data['ext_std_e'])
     ext_std_i = float(data['ext_std_i'])
 else:
+    import os
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    import brainpy as bp
+    import brainpy.math as bm
+    bm.set_platform('gpu')
+    print(bp.__version__)
+    from EINet import LIFNet_monitor, get_IJcomm
+
     model = LIFNet_monitor(num_neurons=32000, K=320, mu=50, conn_path=conn_path, method='euler')
     bm.set_dt(0.02)
     warmup_time = 20        # ms
@@ -146,9 +143,9 @@ fig, ax = plt.subplots(4, 2, figsize=(16, 8),
 print(E_fr, I_fr)
 
 for axis, index, label in zip(ax[:, 0], range(4), ('V', 'W', 'P', 'ion')):
-    axis.semilogy(curve_ts[index], curves[index], label=label)
+    axis.semilogy(curve_ts[index], curves[index], label=label, color=EI_PAIR[0], lw=0.9)
 for axis, index, label in zip(ax[:, 1], range(4, 8), ('V', 'W', 'P', 'ion')):
-    axis.semilogy(curve_ts[index - 4], curves[index], label=label)
+    axis.semilogy(curve_ts[index - 4], curves[index], label=label, color=EI_PAIR[1], lw=0.9)
 ax[0,0].set_title('Excitatory populations', fontsize=18)
 ax[0,1].set_title('Inhibitory populations', fontsize=18)
 ax[0,0].set_ylabel(r'$|\langle\Delta^2 v_i\rangle_i|$')
@@ -172,10 +169,12 @@ for axi in ax.flatten():
 gs = fig.add_gridspec(1, 3, wspace=0.2, hspace=0.2, top=0.30, bottom=0.05, left=0.05, right=0.46)
 ax_bottom = [fig.add_subplot(gsi) for gsi in gs]
 for axis, histogram in zip(ax_bottom, histograms[:3]):
-    axis.stairs(histogram[0], histogram[1], fill=True)
-ax_bottom[0].plot(theory_x[0], theory_curves[0], '--r', linewidth=2, label='theory')
-ax_bottom[1].plot(theory_x[0], theory_curves[0], '--r', linewidth=2, label='theory')
-ax_bottom[2].plot(theory_x[1], theory_curves[1], '--r', linewidth=2, label='theory')
+    axis.stairs(histogram[0], histogram[1], fill=True, facecolor=tint(EI_PAIR[0], 0.86),
+                edgecolor=EI_PAIR[0], lw=1.5)
+theory_kw = dict(ls='--', lw=2.0, color=COLORS['black'], label='theory')
+ax_bottom[0].plot(theory_x[0], theory_curves[0], **theory_kw)
+ax_bottom[1].plot(theory_x[0], theory_curves[0], **theory_kw)
+ax_bottom[2].plot(theory_x[1], theory_curves[1], **theory_kw)
 ax_bottom[0].legend(loc='upper left')
 ax_bottom[0].set_xlabel(r'$\Delta^2 v_i$')
 ax_bottom[1].set_xlabel(r'$\Delta^2 v_i^\mathrm{rec}$')
@@ -187,10 +186,11 @@ ax_bottom[2].set_ylabel('Density')
 gs = fig.add_gridspec(1, 3, wspace=0.2, hspace=0.2, top=0.30, bottom=0.05, left=0.52, right=0.9)
 ax_bottom = [fig.add_subplot(gsi) for gsi in gs]
 for axis, histogram in zip(ax_bottom, histograms[3:]):
-    axis.stairs(histogram[0], histogram[1], fill=True)
-ax_bottom[0].plot(theory_x[0], theory_curves[2], '--r', linewidth=2, label='theory')
-ax_bottom[1].plot(theory_x[0], theory_curves[2], '--r', linewidth=2, label='theory')
-ax_bottom[2].plot(theory_x[1], theory_curves[3], '--r', linewidth=2, label='theory')
+    axis.stairs(histogram[0], histogram[1], fill=True, facecolor=tint(EI_PAIR[1], 0.86),
+                edgecolor=EI_PAIR[1], lw=1.5)
+ax_bottom[0].plot(theory_x[0], theory_curves[2], **theory_kw)
+ax_bottom[1].plot(theory_x[0], theory_curves[2], **theory_kw)
+ax_bottom[2].plot(theory_x[1], theory_curves[3], **theory_kw)
 ax_bottom[0].legend(loc='upper left')
 ax_bottom[0].set_xlabel(r'$\Delta^2 v_i$')
 ax_bottom[1].set_xlabel(r'$\Delta^2 v_i^\mathrm{rec}$')
@@ -204,10 +204,10 @@ print('estimated ext std E: ', ext_std_e)
 print('estimated rec std I: ', rec_std_i)
 print('estimated ext std I: ', ext_std_i)
 
-fig.text(0.01, 0.96, 'A', fontsize=24)
-fig.text(0.01, 0.32, 'C', fontsize=24)
-fig.text(0.47, 0.96, 'B', fontsize=24)
-fig.text(0.47, 0.32, 'D', fontsize=24)
+panel_labels(fig, [
+    (0.01, 0.96, 'A'), (0.01, 0.32, 'C'),
+    (0.47, 0.96, 'B'), (0.47, 0.32, 'D'),
+])
 fig.savefig(path / 'figures' / 'fig2_EI32k_raster.pdf', dpi=300, bbox_inches='tight')
 
 

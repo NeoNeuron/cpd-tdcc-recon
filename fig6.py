@@ -1,17 +1,11 @@
 #%%
 from common import *
+from scifig import *
 import pdif.utils as c4u
 path = Path(__file__).parents[0]
 data_path = path / 'N4000-2-normal'
-from pdif.myplot import sci_formatter
 from scipy.sparse.linalg import svds
-plt.rcParams.update({
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-    'axes.labelsize': 16,
-    'xtick.labelsize': 12,
-    'ytick.labelsize': 12,
-})
+use_scifig()
 
 def merge_weights(data, conn_file, weight_file, K:int=40):
     conn_pairs = np.load(conn_file)
@@ -45,7 +39,7 @@ def as_object_array(values):
 # deltas = [0.05, 0.1, 0.2, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2]
 fig6_data_file = path / 'fig6_data.npz'
 fig6_data_keys = {
-    'ts', 'deltas', 'proj', 'projs_std_relative_change', 'ftest_curves',
+    'ts', 'deltas', 'proj_curves', 'projs_std_relative_change', 'ftest_curves',
     'ftest_tps', 'rhoE', 'rhoI', 'rocs', 'aucs', 'regression_data',
 }
 if fig6_data_file.exists():
@@ -53,7 +47,7 @@ if fig6_data_file.exists():
         if fig6_data_keys.issubset(fig6_data.files):
             ts = fig6_data['ts']
             deltas = fig6_data['deltas']
-            proj = fig6_data['proj']
+            proj_curves = fig6_data['proj_curves']
             projs_std_relative_change = fig6_data['projs_std_relative_change']
             ftest_curves = fig6_data['ftest_curves']
             ftest_tps = fig6_data['ftest_tps']
@@ -161,16 +155,7 @@ fig = plt.figure(figsize=(16, 14))
 
 gs = fig.add_gridspec(1, 1, left=0.07, right=0.5, top=1., bottom=0.97)
 ax = fig.add_subplot(gs[0, 0])
-for i in range(2):
-    ax.fill_between([i,i+1], -0.5, 0.5, color=f'C{i+2:d}', alpha=0.4, lw=0)
-    ax.text(i+0.5, 0.0, r'$\mathbf{W}_{%d}$'%(i+1), fontsize=24, fontweight='bold', ha='center', va='center')
-ax.spines['left'].set_visible(False)
-ax.set_xlim(0,2)
-ax.set_ylim(-0.5, 0.5)
-ax.set_xticks([])
-ax.set_yticks([])
-ax.set_xticklabels([])
-ax.set_yticklabels([])
+state_strip(ax, 2)
 
 axs = []
 for i in range(3):
@@ -184,8 +169,8 @@ axs = axs.reshape(-1, 2)
 deltas_subset = [0.4, 0.8, 1.2]
 sample_range = 20000
 for (delta, axi), proj_curve, ftest_curve, tps in zip(zip(deltas_subset, axs), proj_curves, ftest_curves, ftest_tps):
-    axi[0].plot(ts, proj_curve, color='C0', lw=2)
-    axi[0].fill_between(ts[:int(sample_range/2)], 0, axi[0].get_ylim()[1], color='C1', alpha=0.4, lw=0, zorder=100)
+    axi[0].plot(ts, proj_curve, color=COLORS['green'], lw=0.5)
+    highlight_span(axi[0], ts[0], ts[int(sample_range/2) - 1])
     axi[0].set_xlim(0,2e6)
     axi[0].set_ylim(0,)
     axi[0].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
@@ -194,7 +179,7 @@ for (delta, axi), proj_curve, ftest_curve, tps in zip(zip(deltas_subset, axs), p
     axi[0].set_rasterized(True)
     x, f = ftest_curve
     dT = x[1]-x[0]
-    axi[1].plot(x, f, '-o', ms=3, clip_on=False)
+    axi[1].plot(x, f, **ftest_style())
     # axi[1].semilogy(x, p, '-o', ms=4, clip_on=False)
     axi[1].set_xlim(0, 2e6)
     axi[1].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
@@ -225,12 +210,12 @@ for ax_row in axs:
         rhoI_ = rhoI[np.where(deltas == deltas_subset[counter // len(Ts)])[0][0], counter % len(Ts)]
         tmpE = pd.DataFrame({'weight': weightE, 'sum(CC2)': tdccE})
         tmpI = pd.DataFrame({'weight': weightI, 'sum(CC2)': tdccI})
-        sns.regplot(data=tmpE, x='weight', y='sum(CC2)', ax=axi,
-                    scatter_kws=dict(alpha=0.2, zorder=10),
-                    line_kws=dict(label=f'Exc.: {rhoE_:.2f}'))
-        sns.regplot(data=tmpI, x='weight', y='sum(CC2)', ax=axi,
-                    scatter_kws=dict(alpha=0.2),
-                    line_kws=dict(label=f'Inh.: {rhoI_:.2f}'))
+        sns.regplot(data=tmpE, x='weight', y='sum(CC2)', ax=axi, color=EI_PAIR[0],
+                    scatter_kws=dict(alpha=0.2, s=12, zorder=10),
+                    line_kws=dict(label=f'Exc.: {rhoE_:.2f}', lw=2.5))
+        sns.regplot(data=tmpI, x='weight', y='sum(CC2)', ax=axi, color=EI_PAIR[1],
+                    scatter_kws=dict(alpha=0.2, s=12),
+                    line_kws=dict(label=f'Inh.: {rhoI_:.2f}', lw=2.5))
         axi.ticklabel_format(style='sci', scilimits=(0,0), axis='y', useMathText=True)
         axi.legend(title='correlation', fontsize=10)
         axi.set_ylabel('TDCC')
@@ -245,7 +230,7 @@ gs = fig.add_gridspec(1, 2, left=0.07, right=0.97, top=0.24, bottom=0.06, wspace
 axs = [fig.add_subplot(gs[0, j]) for j in range(2)]
 axs = np.asarray(axs)
 
-axs[0].bar(np.arange(len(deltas)), projs_std_relative_change*100, width=0.5, color='C0', alpha=1.0)
+axs[0].bar(np.arange(len(deltas)), projs_std_relative_change*100, width=0.5, color=COLORS['green'])
 # axs[0].bar(np.arange(len(deltas))-0.1, projs_mean[:,0], width=0.2, color='C2', alpha=0.8, label=r'$\mathbf{W}_1$')
 # axs[0].bar(np.arange(len(deltas))+0.1, projs_mean[:,1], width=0.2, color='C3', alpha=0.8, label=r'$\mathbf{W}_2$')
 # axs[0].legend(loc=(0.02, 0.70), fontsize=16)
@@ -255,8 +240,8 @@ axs[0].set_xlabel(r'Heterogeneity of coupling strength $\sigma_S$', fontsize=16)
 # axs[0].set_ylabel(r'$\langle|\langle \hat{\mathbf{v}}_n, \Delta^2\mathbf{v}\rangle|\rangle_t$', fontsize=16)
 axs[0].set_ylabel('relative change\nof '+ r'$\mathrm{std}\left(\langle \hat{\mathbf{v}}_n, \Delta^2\mathbf{v}\rangle\right)$ (%)', fontsize=14)
 
-axs[1].bar(np.arange(len(deltas))-0.15, np.diff(rhoE, axis=1).flatten(), width=0.3, color='C0', alpha=1.0, label='Exc.')
-axs[1].bar(np.arange(len(deltas))+0.15, np.diff(rhoI, axis=1).flatten(), width=0.3, color='C1', alpha=1.0, label='Inh.')
+axs[1].bar(np.arange(len(deltas))-0.15, np.diff(rhoE, axis=1).flatten(), width=0.3, color=EI_PAIR[0], label='Exc.')
+axs[1].bar(np.arange(len(deltas))+0.15, np.diff(rhoI, axis=1).flatten(), width=0.3, color=EI_PAIR[1], label='Inh.')
 # axs[1].plot(projs_mean_relative_change*100, np.diff(rhoE, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Exc.', clip_on=False)
 # axs[1].plot(projs_mean_relative_change*100, np.diff(rhoI, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Inh.', clip_on=False)
 # axs[1].plot(np.diff(projs_mean, axis=1)*100, np.diff(rhoE, axis=1), lw=4, marker='o', ms=6, mfc='w', label='Exc.', clip_on=False)
@@ -272,14 +257,12 @@ axs[1].set_ylabel(r'$\rho$ improvement', fontsize=14)
 # axs[1].set_xlabel(r'$\sigma_S$', fontsize=16)
 # axs[1].set_ylabel(r'$\rho_E$', fontsize=16)
 
-for i, lab in enumerate('ADG'):
-    fig.text(0.02, 0.96-i*0.24, lab, fontsize=24)
-for i, lab in enumerate('BEH'):
-    fig.text(0.55, 0.96-i*0.24, lab, fontsize=24)
-for i, lab in enumerate('CFI'):
-    fig.text(0.765, 0.96-i*0.24, lab, fontsize=24)
-for i, lab in enumerate('JK'):
-    fig.text(0.028+i*0.5, 0.25, lab, fontsize=24)
+panel_labels(fig, [
+    *[(0.02, 0.96-i*0.24, lab) for i, lab in enumerate('ADG')],
+    *[(0.55, 0.96-i*0.24, lab) for i, lab in enumerate('BEH')],
+    *[(0.765, 0.96-i*0.24, lab) for i, lab in enumerate('CFI')],
+    *[(0.028+i*0.5, 0.25, lab) for i, lab in enumerate('JK')],
+])
 
 fig.savefig(path / 'figures' / 'fig6_reconLIF_vary_weights.pdf', dpi=600)
 #%%

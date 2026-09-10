@@ -1,19 +1,13 @@
 #%%
 from common import *
+from scifig import *
 import pdif.utils as c4u
 path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 from pdif.myplot import sci_formatter
 from scipy.sparse.linalg import svds
 from scipy.stats import gaussian_kde
-from matplotlib.patches import Rectangle
-plt.rcParams.update({
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-    'axes.labelsize': 16,
-    'xtick.labelsize': 12,
-    'ytick.labelsize': 12,
-})
+use_scifig()
 
 fname = 'LIFNet-K=40mu=50_T=4.00e+05'
 # T_single = 1e5
@@ -123,37 +117,28 @@ fig = plt.figure(figsize=(16, 14))
 
 gs = fig.add_gridspec(1, 1, left=0.07, right=0.97, top=1., bottom=0.97)
 ax = fig.add_subplot(gs[0, 0])
-for i in range(4):
-    ax.fill_between([i,i+1], -0.5, 0.5, color=f'C{i:d}', alpha=0.4, lw=0)
-    ax.text(i+0.5, 0.0, r'$\mathbf{W}_{%d}$'%(i+1), fontsize=24, fontweight='bold', ha='center', va='center')
-ax.spines['left'].set_visible(False)
-ax.set_xlim(0,4)
-ax.set_ylim(-0.5, 0.5)
-ax.set_xticks([])
-ax.set_yticks([])
-ax.set_xticklabels([])
-ax.set_yticklabels([])
+state_strip(ax, 4)
 
 gs = fig.add_gridspec(3, 1, left=0.07, right=0.97, top=0.96, bottom=0.67, hspace=0.15, height_ratios=[1, 1, 0.8])
 axs = [fig.add_subplot(gs[i, 0]) for i in range(3)]
-axs[0].plot(raster_x[0], raster_y[0], '.', clip_on=False)
-axs[0].plot(raster_x[1], raster_y[1], '.', clip_on=False)
+axs[0].plot(raster_x[0], raster_y[0], '.', ms=1.5, color=EI_PAIR[0], clip_on=False)
+axs[0].plot(raster_x[1], raster_y[1], '.', ms=1.5, color=EI_PAIR[1], clip_on=False)
 axs[0].set_xlim(0, 4e5)
 axs[0].set_ylim(0, 200)
 axs[0].set_yticks([1,160,200])
 axs[0].set_ylabel('Neuronal ID', fontsize=12)
 axs[0].set_xlim(0, 4e5)
 axs[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
-axs[1].plot(ts, projection_curve)
+axs[1].plot(ts, projection_curve, color=COLORS['green'], lw=0.5)
 axs[1].set_rasterized(True)
-axs[1].fill_between(ts[:500000], 0, 1, color='C1', alpha=0.4, lw=0, zorder=100)
+highlight_span(axs[1], ts[0], ts[499999])
 axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
 axs[1].set_xlim(0,4e5)
 axs[1].set_ylim(0,1)
 axs[1].set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=13)
 axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
 print(ftest_tps)
-axs[2].plot(ftest_x, ftest_f, '-o', ms=4, clip_on=False)
+axs[2].plot(ftest_x, ftest_f, **ftest_style())
 # axs[2].semilogy(x, p, '-o', ms=4, clip_on=False)
 axs[2].set_xlim(0, 4e5)
 axs[2].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
@@ -166,36 +151,23 @@ axs[2].set_ylabel('F statistics', fontsize=12)# rotation=0, va='center', ha='rig
 gs = fig.add_gridspec(3, 4, left=0.07, right=0.97, top=0.61, bottom=0.05, wspace=0.4, hspace=0.4)
 axs = [fig.add_subplot(gs[0, i]) for i in range(4)]
 
-def plot_cached_histogram(axis, cached_histogram):
-    legend_handles = []
-    for c_i, (connection, density, edges, kde_x, kde_y) in enumerate(cached_histogram):
-        color = f'C{1-c_i:d}'
-        axis.stairs(density, edges, fill=True, facecolor=color,
-                    alpha=0.5, edgecolor='black')
-        axis.plot(kde_x, kde_y, lw=1, color=color)
-        legend_handles.append(Rectangle((0, 0), 1, 1, facecolor=color,
-                                        edgecolor='black', alpha=0.5,
-                                        label=str(connection)))
-    axis.legend(handles=legend_handles, title='connection',
-                fontsize=10, title_fontsize=12)
-
 for i, axi in enumerate(axs):
-    plot_cached_histogram(axi, histogram_data[i])
+    hist_with_kde(axi, histogram_data[i])
     axi.set_xlim(-10, -4)
     axi.set_xlabel('CC')
     axi.xaxis.set_major_formatter(sci_formatter)
 
 axs = [fig.add_subplot(gs[1, i]) for i in range(4)]
 for i, axi in enumerate(axs):
-    plot_cached_histogram(axi, histogram_data[4 + i])
+    hist_with_kde(axi, histogram_data[4 + i])
     axi.set_xlabel('CC')
     axi.set_xlim(-11, -4)
     axi.xaxis.set_major_formatter(sci_formatter)
 
 axs = [fig.add_subplot(gs[2, i]) for i in range(4)]
 for i, axi in enumerate(axs):
-    axi.plot(roc_all[i][0], roc_all[i][1], color='C2', lw=4, label=f'raw data: {auc_all[i]:.3f}', clip_on=False)
-    axi.plot(roc_part[i][0], roc_part[i][1], color='C3', lw=4, label=f'CPD data: {auc_part[i]:.3f}', clip_on=False)
+    axi.plot(roc_all[i][0], roc_all[i][1], color=METHOD_PAIR[0], lw=2.5, label=f'raw data: {auc_all[i]:.3f}', clip_on=False)
+    axi.plot(roc_part[i][0], roc_part[i][1], color=METHOD_PAIR[1], lw=2.5, label=f'CPD data: {auc_part[i]:.3f}', clip_on=False)
     axi.set_xlim(0, 1)
     axi.set_ylim(0, 1)
     axi.set_xticks([0, 0.5, 1], ['0', '0.5', '1'])
@@ -204,15 +176,12 @@ for i, axi in enumerate(axs):
     axi.set_xlabel('FPR', fontsize=14)
     axi.set_ylabel('TPR', fontsize=14)
 
-fig.text(0.02, 0.97, 'A', fontsize=24)
-fig.text(0.02, 0.844, 'B', fontsize=24)
-fig.text(0.02, 0.746, 'C', fontsize=24)
-for i, lab in enumerate('DEFG'):
-    fig.text(0.02+i*0.245, 0.605, lab, fontsize=24)
-for i, lab in enumerate('HIJK'):
-    fig.text(0.02+i*0.245, 0.40, lab, fontsize=24)
-for i, lab in enumerate('LMNO'):
-    fig.text(0.02+i*0.245, 0.19, lab, fontsize=24)
+panel_labels(fig, [
+    (0.02, 0.97, 'A'), (0.02, 0.844, 'B'), (0.02, 0.746, 'C'),
+    *[(0.02+i*0.245, 0.605, lab) for i, lab in enumerate('DEFG')],
+    *[(0.02+i*0.245, 0.40, lab) for i, lab in enumerate('HIJK')],
+    *[(0.02+i*0.245, 0.19, lab) for i, lab in enumerate('LMNO')],
+])
 
 fig.savefig(path / 'figures' / 'fig4_reconLIF.pdf', dpi=600)
 # %%
