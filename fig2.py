@@ -4,6 +4,7 @@ from scifig import *
 
 from scipy.stats import norm
 use_scifig()
+compact_ticks()
 
 def estimate_std(rate:float, type:str='total',
                  dt:float=0.02, rate_I:float=None,
@@ -148,14 +149,14 @@ for axis, index, label in zip(ax[:, 1], range(4, 8), ('V', 'W', 'P', 'ion')):
     axis.semilogy(curve_ts[index - 4], curves[index], label=label, color=EI_PAIR[1], lw=0.9)
 ax[0,0].set_title('Excitatory populations', fontsize=18)
 ax[0,1].set_title('Inhibitory populations', fontsize=18)
-ax[0,0].set_ylabel(r'$|\langle\Delta^2 v_i\rangle_i|$')
-ax[0,1].set_ylabel(r'$|\langle\Delta^2 v_i\rangle_i|$')
-ax[1,0].set_ylabel(r'$|\langle\Delta^2 v_i^\mathrm{rec}\rangle_i|$')
-ax[1,1].set_ylabel(r'$|\langle\Delta^2 v_i^\mathrm{rec}\rangle_i|$')
-ax[2,0].set_ylabel(r'$|\langle\Delta^2 v_i^\mathrm{ext}\rangle_i|$')
-ax[2,1].set_ylabel(r'$|\langle\Delta^2 v_i^\mathrm{ext}\rangle_i|$')
-ax[3,0].set_ylabel(r'$|\langle\Delta^2 v_i^\mathrm{ion}\rangle_i|$')
-ax[3,1].set_ylabel(r'$|\langle\Delta^2 v_i^\mathrm{ion}\rangle_i|$')
+ax[0,0].set_ylabel(r'$\left|\langle\Delta^2 v_i\rangle_i\right|$')
+ax[0,1].set_ylabel(r'$\left|\langle\Delta^2 v_i\rangle_i\right|$')
+ax[1,0].set_ylabel(r'$\left|\langle\Delta^2 v_i^\mathrm{rec}\rangle_i\right|$')
+ax[1,1].set_ylabel(r'$\left|\langle\Delta^2 v_i^\mathrm{rec}\rangle_i\right|$')
+ax[2,0].set_ylabel(r'$\left|\langle\Delta^2 v_i^\mathrm{ext}\rangle_i\right|$')
+ax[2,1].set_ylabel(r'$\left|\langle\Delta^2 v_i^\mathrm{ext}\rangle_i\right|$')
+ax[3,0].set_ylabel(r'$\left|\langle\Delta^2 v_i^\mathrm{ion}\rangle_i\right|$')
+ax[3,1].set_ylabel(r'$\left|\langle\Delta^2 v_i^\mathrm{ion}\rangle_i\right|$')
 ax[3,0].set_xlabel('Time (ms)')
 ax[3,1].set_xlabel('Time (ms)')
 ax[0,0].set_xlim(0,200)
@@ -172,10 +173,16 @@ for axis, histogram in zip(ax_bottom, histograms[:3]):
     axis.stairs(histogram[0], histogram[1], fill=True, facecolor=tint(EI_PAIR[0], 0.86),
                 edgecolor=EI_PAIR[0], lw=1.5)
 theory_kw = dict(ls='--', lw=2.0, color=COLORS['black'], label='theory')
+# Sat inside the axes, the label landed on the distribution it annotates; lift
+# it clear of the top spine instead.
+legend_kw = dict(loc='lower left', bbox_to_anchor=(0.05, 0.92), borderaxespad=0.0)
 ax_bottom[0].plot(theory_x[0], theory_curves[0], **theory_kw)
 ax_bottom[1].plot(theory_x[0], theory_curves[0], **theory_kw)
 ax_bottom[2].plot(theory_x[1], theory_curves[1], **theory_kw)
-ax_bottom[0].legend(loc='upper left')
+ax_bottom[0].legend(**legend_kw)
+# The external-input densities peak in the thousands; sci notation keeps the
+# tick labels from pushing the panel's left edge out.
+ax_bottom[2].ticklabel_format(style='sci', scilimits=(0, 0), axis='y', useMathText=True)
 ax_bottom[0].set_xlabel(r'$\Delta^2 v_i$')
 ax_bottom[1].set_xlabel(r'$\Delta^2 v_i^\mathrm{rec}$')
 ax_bottom[2].set_xlabel(r'$\Delta^2 v_i^\mathrm{ext}$')
@@ -191,7 +198,9 @@ for axis, histogram in zip(ax_bottom, histograms[3:]):
 ax_bottom[0].plot(theory_x[0], theory_curves[2], **theory_kw)
 ax_bottom[1].plot(theory_x[0], theory_curves[2], **theory_kw)
 ax_bottom[2].plot(theory_x[1], theory_curves[3], **theory_kw)
-ax_bottom[0].legend(loc='upper left')
+ax_bottom[0].legend(**legend_kw)
+ax_bottom[2].ticklabel_format(style='sci', scilimits=(0, 0), axis='y', useMathText=True)
+ax_bottom[2].set_yticks([0, 400, 800, 1200])
 ax_bottom[0].set_xlabel(r'$\Delta^2 v_i$')
 ax_bottom[1].set_xlabel(r'$\Delta^2 v_i^\mathrm{rec}$')
 ax_bottom[2].set_xlabel(r'$\Delta^2 v_i^\mathrm{ext}$')

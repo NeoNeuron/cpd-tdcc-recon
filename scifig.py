@@ -21,8 +21,9 @@ __all__ = [
     'COLORS', 'SEMANTIC', 'CMAPS', 'FIGSIZE', 'THEMES', 'ACTIVITY', 'DETECT',
     'SEGMENT', 'CAUSAL', 'STRUCTURE', 'EI_PAIR', 'METHOD_PAIR',
     'CONNECTION_PAIR', 'STATE_BANDS', 'SCALE', 'PANEL_LABEL_SIZE', 'tint',
-    'use_scifig', 'panel_labels', 'state_strip', 'highlight_span',
-    'hist_with_kde', 'ftest_style',
+    'use_scifig', 'compact_ticks', 'compact_legend', 'panel_labels',
+    'state_strip', 'highlight_span', 'changepoint_band', 'hist_with_kde',
+    'ftest_style',
 ]
 
 # --- Okabe-Ito categorical palette (SciFig COLORS) -------------------------
@@ -82,13 +83,21 @@ STRUCTURE = THEMES['teal']      # 5. structural connectivity
 
 # --- Within-panel role pairs ----------------------------------------------
 # Each cleared by dataviz/scripts/validate_palette.js --pairs all --mode light.
+#
+# Sky is the paper's *baseline* hue -- the null category, the unprocessed
+# series, the reference projection -- in every panel where one exists. It is
+# the one Okabe-Ito hue with no SEMANTIC or THEMES role, so it carries this
+# meaning without colliding with a pipeline stage.
 EI_PAIR = (SEMANTIC['excitatory'], SEMANTIC['inhibitory'])   # ΔE 21.9 protan
-METHOD_PAIR = (COLORS['black'], COLORS['green'])             # raw / CPD, ΔE 61.9
-CONNECTION_PAIR = (COLORS['black'], COLORS['purple'])        # unconn / conn, ΔE 64.0
+METHOD_PAIR = (COLORS['sky'], COLORS['green'])               # raw / CPD, ΔE 16.6
+CONNECTION_PAIR = (COLORS['sky'], COLORS['purple'])          # unconn / conn, ΔE 9.6
 
-# SciFig's mid gray (#7F7F7F) is deliberately NOT used as a series colour here:
-# against Okabe-Ito green it collapses to ΔE 3.3 under deuteranopia. Black --
-# SEMANTIC['output'] -- is the baseline ink instead.
+# Two colours are deliberately absent from the pairs above. SciFig's mid gray
+# (#7F7F7F) collapses against Okabe-Ito green -- ΔE 3.3 under deuteranopia.
+# Black reads as axis ink rather than data. Sky costs grayscale separation
+# (1.3-1.5:1 against purple/green, where black gave >6:1), so every panel using
+# these pairs carries a legend naming the series -- the relief the dataviz
+# contrast gate requires.
 
 # Print scale: the style sheet is specified at FIGSIZE['double'] (7.2 in) and
 # these figures are drawn at 16 in, so every point size is multiplied by this.
@@ -125,6 +134,29 @@ def use_scifig(scale=SCALE):
     plt.rcParams['image.cmap'] = CMAPS['sequential']
 
 
+def compact_ticks(factor=0.85):
+    """Step tick labels down from the scaled default.
+
+    For the densely panelled frames (fig2, fig3), where full-size tick labels
+    crowd the axes against each other.
+    """
+    for key in ('xtick.labelsize', 'ytick.labelsize'):
+        plt.rcParams[key] = plt.rcParams[key] * factor
+
+
+def compact_legend(factor=0.78):
+    """Step legend text down from the scaled default, title included.
+
+    For rows of narrow panels (fig5 fits six across the figure), where a
+    full-size legend is wider than the axes it sits in. The title is pinned to
+    the label size here; left at the rcParams default it inherits ``font.size``
+    and ends up larger than the entries it heads.
+    """
+    size = plt.rcParams['legend.fontsize'] * factor
+    plt.rcParams['legend.fontsize'] = size
+    plt.rcParams['legend.title_fontsize'] = size
+
+
 def panel_labels(fig, labels):
     """Draw panel letters. ``labels`` is an iterable of ``(x, y, text)``."""
     for x, y, text in labels:
@@ -154,6 +186,15 @@ def highlight_span(ax, x0, x1, theme=SEGMENT):
     return ax.axvspan(x0, x1, color=theme['fill'], lw=0, zorder=0)
 
 
+def changepoint_band(ax, tp, width, color=COLORS['yellow']):
+    """Stripe marking a detected change point on an F-statistic axis.
+
+    ``width`` is the F-test step, so the stripe is the detector's own
+    localisation resolution rather than a decorative rule.
+    """
+    return ax.axvspan(tp - width / 2, tp + width / 2, color=color, lw=0, zorder=0)
+
+
 def hist_with_kde(ax, cached_histogram, legend_title='connection'):
     """Connection histograms with their KDE overlay.
 
@@ -172,10 +213,16 @@ def hist_with_kde(ax, cached_histogram, legend_title='connection'):
         ax.plot(kde_x, kde_y, lw=1.0 * SCALE, color=color, zorder=2)
         handles.append(Rectangle((0, 0), 1, 1, facecolor=fill, edgecolor=color,
                                  label=str(connection)))
+    ax.set_ylabel('Density')
     ax.legend(handles=handles, title=legend_title)
 
 
 def ftest_style():
-    """Marker/line kwargs for the F-statistic traces."""
-    return dict(color=COLORS['green'], marker='o', ms=2.0 * SCALE, mfc='white',
-                mew=0.6 * SCALE, lw=0.8 * SCALE, clip_on=False)
+    """Marker/line kwargs for the F-statistic traces.
+
+    Vermillion, matching the excitatory column of Figure 2 -- so the statistic
+    reads as its own series rather than as more of the green projection curve
+    it is computed from.
+    """
+    return dict(color=COLORS['vermillion'], marker='o', ms=2.0 * SCALE,
+                mfc='white', mew=0.6 * SCALE, lw=0.8 * SCALE, clip_on=False)

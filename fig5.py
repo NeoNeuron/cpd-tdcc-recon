@@ -9,6 +9,8 @@ from scipy.sparse.linalg import svds
 from scipy.stats import gaussian_kde
 import pickle as pkl
 use_scifig()
+# Six panels share the bottom row here; only that row carries legends.
+compact_legend()
 
 # T_single = 1e5
 # for i in range(4):
@@ -104,9 +106,10 @@ for axi, projection_curve, ftest_curve, tps in zip(
     highlight_span(axi[0], ts[0], ts[4999])
     axi[0].set_xlim(0,4e5)
     axi[0].set_ylim(0,ymax)
-    axi[0].ticklabel_format(style='sci', scilimits=(0,0), axis='both', useMathText=True)
+    # No sci notation here: the y offset text landed on the F-statistic axis
+    # above, and these panels' x tick labels are blank anyway.
     axi[0].set_ylabel(
-        r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=16)
+        r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$')
     axi[0].set_rasterized(True)
     print(tps)
     x, f = ftest_curve
@@ -117,11 +120,10 @@ for axi, projection_curve, ftest_curve, tps in zip(
     # for tp in tps:
     #     axs[2].fill_between([tp-dT/2, tp+dT/2], 0.85, 1.6, color='C3', alpha=0.6, lw=0, zorder=10)
     # axs[2].set_ylim(0.85,1.6)
-    axi[1].set_xlabel('Time (ms)', fontsize=16)
-    axi[1].set_ylabel('F statistics', fontsize=12)# rotation=0, va='center', ha='right')
+    axi[1].set_xlabel('Time (ms)')
+    axi[1].set_ylabel('F statistics')# rotation=0, va='center', ha='right')
     axi[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
     axi[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
-    axi[1].set_xlabel('Time (ms)', fontsize=16)
 #%
 
 if not fig5_data_file.exists():
@@ -193,9 +195,9 @@ for i, axi in enumerate(axs[2::3]):
     axi.set_ylim(0, 1)
     axi.set_xticks([0, 0.5, 1], ['0', '0.5', '1'])
     axi.set_yticks([0, 0.5, 1], ['0', '0.5', '1'])
-    axi.legend(loc='lower right', fontsize=10)
-    axi.set_xlabel('FPR', fontsize=14)
-    axi.set_ylabel('TPR', fontsize=14)
+    axi.legend(loc='lower right')
+    axi.set_xlabel('FPR')
+    axi.set_ylabel('TPR')
 
 if not fig5_data_file.exists():
     np.savez(
@@ -212,7 +214,9 @@ if not fig5_data_file.exists():
     )
 
 panel_labels(fig, [
-    (0.02, 0.95, 'A'), (0.02, 0.63, 'B'),
+    # Both letters sit on their axes' top edge; B was low enough to land on
+    # its own y-label.
+    (0.02, 0.95, 'A'), (0.02, 0.658, 'B'),
     *[(0.02+i*0.165, 0.30, lab) for i, lab in enumerate('CDE')],
     *[(0.51+i*0.155, 0.30, lab) for i, lab in enumerate('FGH')],
 ])

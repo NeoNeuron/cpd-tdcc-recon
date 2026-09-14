@@ -3,6 +3,7 @@ from common import *
 from scifig import *
 from matplotlib.image import imread
 use_scifig()
+compact_ticks()
 path = Path(__file__).parents[0]
 data_path = path / 'N4000'
 conn_paths = [data_path / f"connect_matrix-p=0.020-s{i:d}.npy" for i in range(2)]
@@ -56,6 +57,10 @@ else:
         tps=tps, tcd_x=tcd_x, tcd_f=tcd_f, tcd_delta=tcd_delta,
     )
 #%%
+# The rotated projection labels sit in the gutter between the schematics and
+# the time series, so they are sized by hand rather than from axes.labelsize.
+PROJ_LABEL_SIZE = 14
+
 fig = plt.figure(figsize=(12, 7))
 gd = fig.add_gridspec(2,1, left=0.0, right=0.37, top=0.95, bottom=0.15, hspace=0.25, height_ratios=[1,1.4])
 ax = [fig.add_subplot(gdi) for gdi in gd]
@@ -81,14 +86,14 @@ for axis, curve, curve_ts in zip(ax, projected_curves, (ts[1:-1], ts[1:-1], ts[1
     axis.plot(curve_ts, curve, label='', color=COLORS['sky'], lw=0.9)
 for axi in ax:
     axi.set_rasterized(True)
-ylabels = [r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}\rangle|$',
-           r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{ion}\rangle|$',
-           r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle|$',
-           r'$|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{rec}\rangle|$']
+ylabels = [r'$\left|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}\rangle\right|$',
+           r'$\left|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{ion}\rangle\right|$',
+           r'$\left|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle\right|$',
+           r'$\left|\langle \boldsymbol{\alpha}, \Delta^2 \mathbf{v}^\mathrm{rec}\rangle\right|$']
 for i, ylabel in enumerate(ylabels):
     ax[i].set_xlim(0, 2000)
     ax[i].set_ylim(0, 0.6)
-    ax[i].set_ylabel(ylabel, fontsize=10, rotation=0, va='center', ha='right')
+    ax[i].set_ylabel(ylabel, fontsize=PROJ_LABEL_SIZE, rotation=0, va='center', ha='right')
     if i == 3:
         ax[i].set_xlabel('Time (ms)')
     else:
@@ -101,15 +106,15 @@ for axis, curve, curve_ts in zip(ax, singular_curves, (ts[1:-1], ts[1:-1], ts[1:
 for axi in ax:
     axi.set_rasterized(True)
 
-ylabels = [r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}\rangle|$',
-           r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ion}\rangle|$',
-           r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle|$',
-           r'$|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{rec}\rangle|$']
+ylabels = [r'$\left|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}\rangle\right|$',
+           r'$\left|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ion}\rangle\right|$',
+           r'$\left|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{ext}\rangle\right|$',
+           r'$\left|\langle \hat\mathbf{v}_n, \Delta^2 \mathbf{v}^\mathrm{rec}\rangle\right|$']
 for i, ylabel in enumerate(ylabels):
     highlight_span(ax[i], ts[0], ts[24999])
     ax[i].set_xlim(0, 2000)
     ax[i].set_ylim(0, 0.6)
-    ax[i].set_ylabel(ylabel, fontsize=10, rotation=0, va='center', ha='right')
+    ax[i].set_ylabel(ylabel, fontsize=PROJ_LABEL_SIZE, rotation=0, va='center', ha='right')
     if i == 3:
         ax[i].set_xlabel('Time (ms)')
     else:
@@ -121,8 +126,7 @@ print(tps)
 ax.plot(tcd_x, tcd_f, **ftest_style())
 ax.set_xlim(0, 2000)
 for tp in tps:
-    ax.axvspan(tp-tcd_delta/2, tp+tcd_delta/2, color=DETECT['fill'], lw=0, zorder=0)
-    ax.axvline(tp, color=DETECT['accent'], lw=2.0, zorder=1)
+    changepoint_band(ax, tp, tcd_delta)
 ax.set_ylim(0,5)
 ax.set_xlabel('Time (ms)')
 ax.set_ylabel('F statistics', rotation=0, fontsize=14, va='center', ha='right')

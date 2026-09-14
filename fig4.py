@@ -126,7 +126,7 @@ axs[0].plot(raster_x[1], raster_y[1], '.', ms=1.5, color=EI_PAIR[1], clip_on=Fal
 axs[0].set_xlim(0, 4e5)
 axs[0].set_ylim(0, 200)
 axs[0].set_yticks([1,160,200])
-axs[0].set_ylabel('Neuronal ID', fontsize=12)
+axs[0].set_ylabel('Neuronal ID')
 axs[0].set_xlim(0, 4e5)
 axs[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
 axs[1].plot(ts, projection_curve, color=COLORS['green'], lw=0.5)
@@ -135,7 +135,7 @@ highlight_span(axs[1], ts[0], ts[499999])
 axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
 axs[1].set_xlim(0,4e5)
 axs[1].set_ylim(0,1)
-axs[1].set_ylabel(r'$|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle|$', fontsize=13)
+axs[1].set_ylabel(r'$\left|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle\right|$')
 axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
 print(ftest_tps)
 axs[2].plot(ftest_x, ftest_f, **ftest_style())
@@ -145,8 +145,8 @@ axs[2].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True
 # for tp in tps:
 #     axs[2].fill_between([tp-dT/2, tp+dT/2], 0.85, 1.6, color='C3', alpha=0.6, lw=0, zorder=10)
 # axs[2].set_ylim(0.85,1.6)
-axs[2].set_xlabel('Time (ms)', fontsize=16)
-axs[2].set_ylabel('F statistics', fontsize=12)# rotation=0, va='center', ha='right')
+axs[2].set_xlabel('Time (ms)')
+axs[2].set_ylabel('F statistics')# rotation=0, va='center', ha='right')
 
 gs = fig.add_gridspec(3, 4, left=0.07, right=0.97, top=0.61, bottom=0.05, wspace=0.4, hspace=0.4)
 axs = [fig.add_subplot(gs[0, i]) for i in range(4)]
@@ -172,9 +172,9 @@ for i, axi in enumerate(axs):
     axi.set_ylim(0, 1)
     axi.set_xticks([0, 0.5, 1], ['0', '0.5', '1'])
     axi.set_yticks([0, 0.5, 1], ['0', '0.5', '1'])
-    axi.legend(loc='lower right', fontsize=10)
-    axi.set_xlabel('FPR', fontsize=14)
-    axi.set_ylabel('TPR', fontsize=14)
+    axi.legend(loc='lower right')
+    axi.set_xlabel('FPR')
+    axi.set_ylabel('TPR')
 
 panel_labels(fig, [
     (0.02, 0.97, 'A'), (0.02, 0.844, 'B'), (0.02, 0.746, 'C'),
