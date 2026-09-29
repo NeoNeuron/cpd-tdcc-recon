@@ -1,0 +1,191 @@
+#%%
+# Supplementary Figure S2: identical to fig4.py's original LIF-only
+# reconstruction figure (superseded in the main text by fig3_recon_LIF_HH_ML.py,
+# which shows only one example subnetwork per model). Reuses fig4.py's cached
+# data unchanged.
+from common import *
+from scifig import *
+import pdif.utils as c4u
+path = Path(__file__).parents[0]
+data_path = path / 'N4000'
+from pdif.myplot import sci_formatter
+from scipy.sparse.linalg import svds
+from scipy.stats import gaussian_kde
+use_scifig()
+
+fname = 'LIFNet-K=40mu=50_T=4.00e+05'
+# T_single = 1e5
+# for i in range(4):
+#     buff = spk_data[(spk_data[:,0]>=i*T_single)*(spk_data[:,0]<(i+1)*T_single)].copy()
+#     buff[:, 0] -= i*T_single
+#     c4u.save2bin(data_path / (fname+f'_part{i:d}_spike_train.dat'), buff)
+
+def apply_mask(df, mask_file):
+    mask = np.load(mask_file)
+    # mask = mask[:, (mask[0] < 160)+(mask[0] >= 3960)]
+    # mask = mask[:, (mask[1] < 160)+(mask[1] >= 3960)]
+    row_list = []
+    for id_pairs in mask.T:
+        row_list.append(df[(df['pre_id'] == id_pairs[0]) & (df['post_id'] == id_pairs[1])].index.values)
+    row_list = np.concatenate(row_list)
+    df = df.loc[row_list]
+    return df
+fig4_data_file = path / 'fig4_data.npz'
+
+def as_object_array(values):
+    result = np.empty(len(values), dtype=object)
+    for i, value in enumerate(values):
+        result[i] = value
+    return result
+
+def get_histogram_data(data_recon, hist_range):
+    result = []
+    for connection in data_recon['connection'].unique():
+        values = data_recon.loc[data_recon['connection'] == connection, 'log-CC'].to_numpy()
+        density, edges = np.histogram(values, bins=30, range=hist_range, density=True)
+        kde_x = np.linspace(*hist_range, 200)
+        kde_y = gaussian_kde(values)(kde_x) if values.size > 1 else np.zeros_like(kde_x)
+        result.append((connection, density, edges, kde_x, kde_y))
+    return result
+
+if fig4_data_file.exists():
+    fig4_data = np.load(fig4_data_file, allow_pickle=True)
+    ts = fig4_data['ts']
+    raster_x = fig4_data['raster_x']
+    raster_y = fig4_data['raster_y']
+    projection_curve = fig4_data['projection_curve']
+    ftest_x = fig4_data['ftest_x']
+    ftest_f = fig4_data['ftest_f']
+    ftest_tps = fig4_data['ftest_tps']
+    histogram_data = fig4_data['histogram_data']
+    roc_all = fig4_data['roc_all']
+    roc_part = fig4_data['roc_part']
+    auc_all = fig4_data['auc_all']
+    auc_part = fig4_data['auc_part']
+else:
+    spk_data = np.fromfile(data_path / (fname+'_spike_train.dat'), dtype=float).reshape(-1, 2)
+    vol_data = c4u.fetch_voltage(data_path / (fname+'_voltage.dat'), 200, (0, 4e5))
+    ts = vol_data[1:-1, 0].copy()
+    DDV = np.diff(vol_data[:, 1:], n=2, axis=0)
+    _, _, v = svds(DDV[:500000], k=1, return_singular_vectors='vh', which='SM')
+    raster_data = spk_data[::1000]
+    raster_x = as_object_array([
+        raster_data[raster_data[:, 1] < 160, 0],
+        raster_data[raster_data[:, 1] >= 160, 0],
+    ])
+    raster_y = as_object_array([
+        raster_data[raster_data[:, 1] < 160, 1],
+        raster_data[raster_data[:, 1] >= 160, 1],
+    ])
+    projection_curve = np.abs(DDV @ v.flatten())
+    ftest_tps, ftest_x, ftest_f, _ = TCD_Ftest(
+        ts, (DDV @ v.T).flatten(), window_size=int(400/0.02),
+        p_thresh=1e-18, return_delta_mean=True)
+    roc_all, roc_part, auc_all, auc_part = [], [], [], []
+    histogram_data = []
+    for i in range(4):
+        estimator = CausalityEstimator(
+            path=data_path,
+            spk_fname=f'LIFNet-K=40mu=50_T=4.00e+05_part{i:d}',
+            N=200, T=1e5, n_thread=120, delay=0.0, dt=0.1, order=(1, 1), DT=1e4)
+        data = estimator.fetch_data(new_run=True)
+        data_matched = c4u.match_features(data, N=200, conn_file=data_path/f'connect_matrix-p=0.020-s{i:d}_subnet.npy')
+        data_matched = apply_mask(data_matched, data_path/f'connect_matrix-p=0.020-s{i:d}_mask.npy')
+        data_recon, fig_data = c4u._reconstruction_analysis(
+            data_matched, x='log-CC', hist_range=(-10, -4), nbins=100, algorithm='curve_fit')
+        histogram_data.append(get_histogram_data(data_recon, (-10, -4)))
+        roc_part.append(fig_data['roc_gt'])
+        auc_part.append(fig_data['auc_svm'])
+    estimator = CausalityEstimator(
+        path=data_path, spk_fname=fname, N=200, T=4e5, n_thread=120,
+        delay=0.0, dt=0.1, order=(1, 1), DT=1e4)
+    data = estimator.fetch_data(new_run=True)
+    for i in range(4):
+        data_matched = c4u.match_features(data, N=200, conn_file=data_path/f'connect_matrix-p=0.020-s{i:d}_subnet.npy')
+        data_matched = apply_mask(data_matched, data_path/f'connect_matrix-p=0.020-s{i:d}_mask.npy')
+        data_recon, fig_data = c4u._reconstruction_analysis(
+            data_matched, x='log-CC', hist_range=None, nbins=100, algorithm='curve_fit')
+        histogram_data.append(get_histogram_data(data_recon, (-11, -4)))
+        roc_all.append(fig_data['roc_gt'])
+        auc_all.append(fig_data['auc_svm'])
+    np.savez(
+        fig4_data_file, ts=ts, raster_x=as_object_array(raster_x),
+        raster_y=as_object_array(raster_y), projection_curve=projection_curve,
+        ftest_x=ftest_x, ftest_f=ftest_f, ftest_tps=ftest_tps,
+        histogram_data=as_object_array(histogram_data),
+        roc_all=as_object_array(roc_all), roc_part=as_object_array(roc_part),
+        auc_all=np.asarray(auc_all), auc_part=np.asarray(auc_part),
+    )
+#%% # Load the voltage data
+fig = plt.figure(figsize=(16, 14))
+
+gs = fig.add_gridspec(1, 1, left=0.07, right=0.97, top=1., bottom=0.97)
+ax = fig.add_subplot(gs[0, 0])
+state_strip(ax, 4)
+
+gs = fig.add_gridspec(3, 1, left=0.07, right=0.97, top=0.96, bottom=0.67, hspace=0.15, height_ratios=[1, 1, 0.8])
+axs = [fig.add_subplot(gs[i, 0]) for i in range(3)]
+axs[0].plot(raster_x[0], raster_y[0], '.', ms=1.5, color=EI_PAIR[0], clip_on=False)
+axs[0].plot(raster_x[1], raster_y[1], '.', ms=1.5, color=EI_PAIR[1], clip_on=False)
+axs[0].set_xlim(0, 4e5)
+axs[0].set_ylim(0, 200)
+axs[0].set_yticks([1,160,200])
+axs[0].set_ylabel('Neuronal ID')
+axs[0].set_xlim(0, 4e5)
+axs[0].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
+axs[1].plot(ts, projection_curve, color=COLORS['green'], lw=0.5)
+axs[1].set_rasterized(True)
+highlight_span(axs[1], ts[0], ts[499999])
+axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5])
+axs[1].set_xlim(0,4e5)
+axs[1].set_ylim(0,1)
+axs[1].set_ylabel(r'$\left|\langle \hat{\mathbf{v}}_n, \Delta^2 \mathbf{v}\rangle\right|$')
+axs[1].set_xticks([0, 1e5, 2e5, 3e5, 4e5], ['', '', '', '', ''])
+print(ftest_tps)
+axs[2].plot(ftest_x, ftest_f, **ftest_style())
+# axs[2].semilogy(x, p, '-o', ms=4, clip_on=False)
+axs[2].set_xlim(0, 4e5)
+axs[2].ticklabel_format(style='sci', scilimits=(0,0), axis='x', useMathText=True)
+# for tp in tps:
+#     axs[2].fill_between([tp-dT/2, tp+dT/2], 0.85, 1.6, color='C3', alpha=0.6, lw=0, zorder=10)
+# axs[2].set_ylim(0.85,1.6)
+axs[2].set_xlabel('Time (ms)')
+axs[2].set_ylabel('F statistics')# rotation=0, va='center', ha='right')
+
+gs = fig.add_gridspec(3, 4, left=0.07, right=0.97, top=0.61, bottom=0.05, wspace=0.4, hspace=0.4)
+axs = [fig.add_subplot(gs[0, i]) for i in range(4)]
+
+for i, axi in enumerate(axs):
+    hist_with_kde(axi, histogram_data[i])
+    axi.set_xlim(-10, -4)
+    axi.set_xlabel('CC')
+    axi.xaxis.set_major_formatter(sci_formatter)
+
+axs = [fig.add_subplot(gs[1, i]) for i in range(4)]
+for i, axi in enumerate(axs):
+    hist_with_kde(axi, histogram_data[4 + i])
+    axi.set_xlabel('CC')
+    axi.set_xlim(-11, -4)
+    axi.xaxis.set_major_formatter(sci_formatter)
+
+axs = [fig.add_subplot(gs[2, i]) for i in range(4)]
+for i, axi in enumerate(axs):
+    axi.plot(roc_all[i][0], roc_all[i][1], color=METHOD_PAIR[0], lw=2.5, label=f'raw data: {auc_all[i]:.3f}', clip_on=False)
+    axi.plot(roc_part[i][0], roc_part[i][1], color=METHOD_PAIR[1], lw=2.5, label=f'CPD data: {auc_part[i]:.3f}', clip_on=False)
+    axi.set_xlim(0, 1)
+    axi.set_ylim(0, 1)
+    axi.set_xticks([0, 0.5, 1], ['0', '0.5', '1'])
+    axi.set_yticks([0, 0.5, 1], ['0', '0.5', '1'])
+    axi.legend(loc='lower right')
+    axi.set_xlabel('FPR')
+    axi.set_ylabel('TPR')
+
+panel_labels(fig, [
+    (0.02, 0.97, 'A'), (0.02, 0.844, 'B'), (0.02, 0.746, 'C'),
+    *[(0.02+i*0.245, 0.605, lab) for i, lab in enumerate('DEFG')],
+    *[(0.02+i*0.245, 0.40, lab) for i, lab in enumerate('HIJK')],
+    *[(0.02+i*0.245, 0.19, lab) for i, lab in enumerate('LMNO')],
+])
+
+fig.savefig(path / 'figures' / 'figS2_reconLIF.pdf', dpi=600)
+# %%
