@@ -2,9 +2,11 @@
 # New Figure 2: CPD method schematics (previously Fig3) with the
 # second-derivative-of-voltage histograms (previously Fig2 panels C-D) added
 # as a new top row. Reuses the cached data from fig2.py and fig3.py.
+# Panel C (covariance schematic) is drawn by covariance_schematic() below.
 from common import *
 from scifig import *
 from matplotlib.image import imread
+from matplotlib.patches import Ellipse, FancyArrowPatch
 use_scifig()
 compact_ticks()
 path = Path(__file__).parents[0]
@@ -29,6 +31,67 @@ tps = fig3_data['tps']
 tcd_x = fig3_data['tcd_x']
 tcd_f = fig3_data['tcd_f']
 tcd_delta = float(fig3_data['tcd_delta'])
+
+def covariance_schematic(ax, sigma1=THEMES['orange'], sigma2=THEMES['purple'], seed=3):
+    """Panel C: covariance ellipses of Delta^2 v before (Sigma_1) and after (Sigma_2) the change
+    point, and the distributions of the projection onto alpha, the minimum-variance direction of
+    Sigma_1. Illustrative 2-D covariances, not simulation data."""
+    rng = np.random.default_rng(seed)
+    ink, grey = COLORS['black'], '#6b6b6b'
+
+    def rot(deg):
+        t = np.deg2rad(deg)
+        return np.array([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
+
+    th1, (a1, b1) = 8, (1.9, 0.26)      # Sigma_1: long / short axis s.d.
+    th2, (a2, b2) = 58, (1.45, 0.75)    # Sigma_2: independent orientation
+    R1, R2 = rot(th1), rot(th2)
+    S1 = R1 @ np.diag([a1**2, b1**2]) @ R1.T
+    S2 = R2 @ np.diag([a2**2, b2**2]) @ R2.T
+    alpha, u = R1[:, 1], R1[:, 0]       # short and long axes of Sigma_1
+    s1, s2 = np.sqrt(alpha @ S1 @ alpha), np.sqrt(alpha @ S2 @ alpha)
+
+    ax.set_aspect('equal')
+    ax.axis('off')
+    # samples and 2-s.d. ellipses
+    for S, (a, b), th, theme in ((S2, (a2, b2), th2, sigma2), (S1, (a1, b1), th1, sigma1)):
+        x = rng.multivariate_normal([0, 0], S, 160)
+        ax.scatter(*x.T, s=4, color=theme['edge'], alpha=0.45, lw=0, zorder=2)
+        ax.add_patch(Ellipse((0, 0), 4 * a, 4 * b, angle=th, fc=theme['fill'], ec='none', alpha=0.8, zorder=1))
+        ax.add_patch(Ellipse((0, 0), 4 * a, 4 * b, angle=th, fc='none', ec=theme['edge'], lw=2.2, zorder=3))
+    ax.add_patch(FancyArrowPatch((0, 0), 2.0 * alpha, arrowstyle='-|>', mutation_scale=18, lw=3,
+                                 color=ink, zorder=5))
+    ax.text(*(2.0 * alpha + np.array([0.15, 0.0])), r'$\boldsymbol{\alpha}$', fontsize=22, color=ink,
+            ha='left', va='center')
+
+    # projection axis parallel to alpha, offset along the long axis of Sigma_1
+    c, L = 4.6 * u, 3.1
+    ax.add_patch(FancyArrowPatch(c - L * alpha, c + L * alpha, arrowstyle='-|>', mutation_scale=12,
+                                 lw=1.3, color=grey, zorder=6))
+    ax.text(*(c + (L + 0.15) * alpha), r'$\langle\boldsymbol{\alpha},\Delta^2\mathbf{v}\rangle$',
+            color=grey, fontsize=15, ha='center', va='bottom')
+    for sd, theme in ((s1, sigma1), (s2, sigma2)):   # projection of the 2-s.d. extent
+        for p in (-2 * sd, 2 * sd):
+            ax.plot(*np.c_[p * alpha + 0.3 * u, c + p * alpha], color=theme['edge'], lw=1.0,
+                    ls=(0, (2, 2)), zorder=0)
+    s = np.linspace(-L, L, 400)
+    for sd, theme, h in ((s2, sigma2, 0.75), (s1, sigma1, 1.5)):
+        ss = s[np.abs(s) < 3 * sd]
+        base = c[:, None] + np.outer(alpha, ss)
+        pts = base + np.outer(u, h * np.exp(-ss**2 / (2 * sd**2)))
+        ax.fill(*np.c_[base, pts[:, ::-1]], color=theme['edge'], alpha=0.3, lw=0, zorder=3)
+        ax.plot(*pts, color=theme['edge'], lw=2.2, zorder=4)
+    ax.text(*(c + 1.6 * u + 0.05 * alpha), r'$\lambda_{\min}(\boldsymbol{\Sigma}_1)$',
+            color=sigma1['accent'], fontsize=15, ha='left', va='center')
+    ax.text(*(c + 0.85 * u - 1.5 * alpha), r'$\boldsymbol{\alpha}^{\top}\boldsymbol{\Sigma}_2\boldsymbol{\alpha}$',
+            color=sigma2['accent'], fontsize=15, ha='left', va='center')
+    ax.text(*(R1 @ [-2 * a1 - 0.1, 0]), r'$\boldsymbol{\Sigma}_1\ (\mathbf{W}_1)$', color=sigma1['accent'],
+            fontsize=18, ha='right', va='center')
+    ax.text(*(R2 @ [-2 * a2 + 0.2, -2 * b2 - 0.05]), r'$\boldsymbol{\Sigma}_2\ (\mathbf{W}_2)$',
+            color=sigma2['accent'], fontsize=18, ha='center', va='top')
+    ax.relim()
+    ax.autoscale_view()
+
 
 #%%
 # Old fig3 spanned figure-fraction [0.05, 1.00] top-to-bottom; it is reused
@@ -90,9 +153,7 @@ for axi in ax_top:
 top, bottom = rescale(0.95, 0.15)
 gd = fig.add_gridspec(2, 1, left=0.0, right=0.37, top=top, bottom=bottom, hspace=0.25, height_ratios=[1, 1.4])
 ax = [fig.add_subplot(gdi) for gdi in gd]
-pdf_image = imread('schematics.png')
-ax[0].imshow(pdf_image)
-ax[0].axis('off')
+covariance_schematic(ax[0])
 pdf_image = imread('DDV_SVD.png')
 ax[1].imshow(pdf_image)
 ax[1].axis('off')

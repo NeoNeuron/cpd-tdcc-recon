@@ -1,5 +1,5 @@
 #%%
-# Supplementary Figure S2: identical to fig4.py's original LIF-only
+# Supplementary Figure S3: identical to fig4.py's original LIF-only
 # reconstruction figure (superseded in the main text by fig3_recon_LIF_HH_ML.py,
 # which shows only one example subnetwork per model). Reuses fig4.py's cached
 # data unchanged.
@@ -187,5 +187,5 @@ panel_labels(fig, [
     *[(0.02+i*0.245, 0.19, lab) for i, lab in enumerate('LMNO')],
 ])
 
-fig.savefig(path / 'figures' / 'figS2_reconLIF.pdf', dpi=600)
+fig.savefig(path / 'figures' / 'figS3_reconLIF.pdf', dpi=600)
 # %%
