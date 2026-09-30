@@ -193,11 +193,11 @@ for (delta, axi), proj_curve, ftest_curve, tps in zip(zip(deltas_subset, axs), p
     axi[0].set_xticks([0, 5e5, 1e6, 15e5, 2e6], ['', '', '', '', ''])
     axi[1].set_xticks([0, 5e5, 1e6, 15e5, 2e6])
     if delta == 1.2:
-        axi[1].set_ylim(0.5, 3)
+        axi[1].set_ylim(0.5, 3.2)
     elif delta == 0.8:
-        axi[1].set_ylim(0.8, 2.4)
+        axi[1].set_ylim(0.8, 2.0)
     else:
-        axi[1].set_ylim(0.9, 1.6)
+        axi[1].set_ylim(0.9, 1.4)
     axi[1].set_xlabel('Time (ms)', fontsize=16)
 
 
