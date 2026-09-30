@@ -91,7 +91,7 @@ if not fig6_data_loaded:
         proj_curves.append(np.abs(proj[delta_index])[::100])
         tps, x, f, p = TCD_Ftest(
             ts, proj[delta_index], window_size=int(500/0.02),
-            p_thresh=1e-18, return_delta_mean=True)
+            p_thresh=1e-10, return_delta_mean=True)
         ftest_curves.append((x, f))
         ftest_tps.append(tps)
 

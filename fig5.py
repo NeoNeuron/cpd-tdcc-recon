@@ -66,7 +66,7 @@ else:
         projection_curves.append(np.abs(DDV_proj).flatten())
         tps, x, f, p = TCD_Ftest(
             ts, DDV_proj.flatten(), window_size=int(200/0.02),
-            p_thresh=1e-18, return_delta_mean=True)
+            p_thresh=1e-10, return_delta_mean=True)
         ftest_curves.append((x, f))
         ftest_tps.append(tps)
     ts = ts[::100]

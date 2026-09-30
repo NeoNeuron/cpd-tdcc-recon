@@ -84,25 +84,25 @@ def TCD(ts, data, window_size=1000, return_delta_mean=True):
     else:
         return cp
 
-def square_windowed_Fstats(data, window_size=1000):
+def square_windowed_Fstats(data, window_size=1000, stride=10):
     """
-    Calculate the square windowed mean of the data.
+    Calculate the square windowed F-statistics of the data.
     """
     n = len(data)
     number_of_means = np.ceil(n / window_size).astype(int)
     if number_of_means*window_size > n:
         data = np.hstack([data, np.nan*np.ones(number_of_means*window_size - n)])
-    result = np.nanmean(data.reshape(-1, window_size)**2, axis=1)
+    result = np.nanmean(data.reshape(-1, window_size)[:,::stride]**2, axis=1)
     return result[1:]/result[:-1]
 
 import scipy.stats as stats 
-def TCD_Ftest(ts, data, window_size=1000, p_thresh=1e-5, return_delta_mean=True, verbose=True):
+def TCD_Ftest(ts, data, window_size=1000, stride=5, p_thresh=1e-5, return_delta_mean=True, verbose=True):
     """
     Calculate the time course density (TCD) of the data.
     """
     assert len(ts) == len(data), "Length of time series and data must be the same"
-    data_F = square_windowed_Fstats(data, window_size)
-    P = stats.f(window_size, window_size).sf(data_F)
+    data_F = square_windowed_Fstats(data, window_size, stride)
+    P = stats.f(int(window_size/stride), int(window_size/stride)).sf(data_F)
     ts_mean = ts[::window_size][1:]
     if len(ts_mean) == len(data_F)-1:
         ts_mean = np.concatenate((ts_mean, [ts_mean[-2]*2-ts_mean[-1]]))

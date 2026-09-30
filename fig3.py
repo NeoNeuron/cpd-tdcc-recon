@@ -48,7 +48,7 @@ else:
     ], dtype=object)
     tps, tcd_x, tcd_f, _ = TCD_Ftest(
         ts[1:-1], (DDV @ v.T).flatten(), window_size=int(20/0.02),
-        p_thresh=1e-18, return_delta_mean=True,
+        p_thresh=1e-10, return_delta_mean=True,
     )
     tcd_delta = tcd_x[1] - tcd_x[0]
     np.savez(
