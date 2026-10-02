@@ -84,7 +84,7 @@ def TCD(ts, data, window_size=1000, return_delta_mean=True):
     else:
         return cp
 
-def square_windowed_Fstats(data, window_size=1000, stride=10):
+def square_windowed_Fstats(data, window_size=1000, stride=5):
     """
     Calculate the square windowed F-statistics of the data.
     """

@@ -80,7 +80,7 @@ else:
     projection_curve = np.abs(DDV @ v.flatten())
     ftest_tps, ftest_x, ftest_f, _ = TCD_Ftest(
         ts, (DDV @ v.T).flatten(), window_size=int(400/0.02),
-        p_thresh=1e-18, return_delta_mean=True)
+        p_thresh=1e-10, return_delta_mean=True)
     roc_all, roc_part, auc_all, auc_part = [], [], [], []
     histogram_data = []
     for i in range(4):
